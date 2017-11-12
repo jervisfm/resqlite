@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.github.resqlite.proto.resqlite";
+option java_outer_classname = "ReSqliteProto";
+
+package proto/resqlite;
+
+// The ReSqlite (replicated sqlite) service definition.
+service ReSqlite {
+  // Sends a SQL command for processing.
+  rpc SendSqlCommand (SqlCommandRequest) returns (SqlCommandResponse) {}
+
+}
+
+message SqlCommandRequest {
+  // TODO(jmuindi): Fill this out.
+}
+
+
+message SqlCommandResponse {
+  // TODO(jmuindi): Fill this out.
+}
