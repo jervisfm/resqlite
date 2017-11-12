@@ -3,12 +3,12 @@
 package raft
 
 import (
-	//"log"
+	"log"
 	//"net"
 
 	pb "github.com/jervisfm/resqlite/proto/raft"
 	"golang.org/x/net/context"
-	//"google.golang.org/grpc"
+	"google.golang.org/grpc"
 	//"google.golang.org/grpc/reflection"
 )
 
@@ -28,4 +28,17 @@ func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest)
 func (s *Server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*pb.RequestVoteResponse, error) {
 	// TODO(jmuindi): Implement.
 	return &pb.RequestVoteResponse{}, nil
+}
+
+
+func ConnectToServer(address string) (pb.RaftClient) {
+        // Set up a connection to the server.
+        conn, err := grpc.Dial(address, grpc.WithInsecure())
+        if err != nil {
+                log.Fatalf("did not connect: %v", err)
+        }
+        defer conn.Close()
+        c := pb.NewRaftClient(conn)
+
+	return c
 }
