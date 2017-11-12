@@ -9,7 +9,7 @@ package proto/raft;
 // The Raft service definition.
 service Raft {
   // Sends an AppendEntries RPC.
-  rpc AppendEntries (AppendEntriesRequset) returns (AppendEntriesResponse) {}
+  rpc AppendEntries (AppendEntriesRequest) returns (AppendEntriesResponse) {}
 }
 
 // The request message containing the user's name.
