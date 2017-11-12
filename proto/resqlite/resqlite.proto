@@ -4,7 +4,7 @@ option java_multiple_files = true;
 option java_package = "com.github.resqlite.proto.resqlite";
 option java_outer_classname = "ReSqliteProto";
 
-package proto/resqlite;
+package proto_resqlite;
 
 // The ReSqlite (replicated sqlite) service definition.
 service ReSqlite {
