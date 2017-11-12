@@ -43,4 +43,14 @@ A prerequiste is that you would need to get Protocol Buffers compiler setup. Gra
 For OS X, we used https://github.com/google/protobuf/releases/download/v3.4.0/protoc-3.4.0-osx-x86_64.zip. Add protoc to your
 environment $PATH.
 
+Install the Protocol Buffer compiler plugin for golang:
+```
+$ go get -u github.com/golang/protobuf/protoc-gen-go
+```
+
+This puts the tool under golang/bin so make sure that's part for your $PATH.
+```
+$ export PATH=$PATH:$GOPATH/bin
+```
+
 
