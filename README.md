@@ -38,3 +38,8 @@ $ go get -u github.com/golang/dep/cmd/dep
 ```
 
 For RPC setup, we make use of the gRPC library from Google.
+
+A prerequiste is that you would need to get Protocol Buffers compiler setup. Grab one for your platform from https://github.com/google/protobuf/releases
+For OS X, we used https://github.com/google/protobuf/releases/download/v3.4.0/protoc-3.4.0-osx-x86_64.zip
+
+
