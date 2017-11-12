@@ -80,3 +80,17 @@ func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
 }
 
 
+func NodeToAddressString(input Node) string {
+	return input.Hostname + ":" +  input.Port
+}
+
+// Connects to the other Raft nodes and returns array of Raft Client connections.
+func ConnectToOtherNodes(otherNodes []Node) ([]pb.RaftClient) {
+	result := make([]pb.RaftClient, 0)
+	for _, node := range otherNodes {
+		serverAddress := NodeToAddressString(node)
+		client := ConnectToServer(serverAddress)
+		result = append(result, client)
+	}
+	return result
+}
