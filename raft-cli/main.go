@@ -3,7 +3,8 @@
 package main
 
 import (
-	//"log"
+	"flag"
+	"log"
 	//"net"
 
 	//"golang.org/x/net/context"
@@ -13,10 +14,23 @@ import (
 	//"google.golang.org/grpc/reflection"
 )
 
-const (
-	port = ":50051"
-)
+
+// Flags
+var nodes string;
+var port string;
+
+func ParseFlags() {
+	nodesPtr := flag.String("nodes", "", "A comma separated list of node IP addresses.")
+	portPtr := flag.String("port", ":50051", "A local port address for the raft server.")
+	flag.Parse()
+	nodes = *nodesPtr
+	port = *portPtr
+}
+
 
 func main() {
+	ParseFlags()
+	log.Printf("Starting Raft Server listening at: %v", port)
+	log.Printf("Other Node ip address: %v", nodes)
 	raft.StartServer(port)
 }
