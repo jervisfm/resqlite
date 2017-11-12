@@ -57,7 +57,6 @@ func ConnectToServer(address string) (pb.RaftClient) {
                 log.Fatalf("did not connect: %v", err)
         }
         c := pb.NewRaftClient(conn)
-	log.Printf("Connected to node: %v", address)
 
 	return c
 }
@@ -94,7 +93,6 @@ func NodeToAddressString(input Node) string {
 func ConnectToOtherNodes(otherNodes []Node) ([]pb.RaftClient) {
 	
 	result := make([]pb.RaftClient, 0)
-	log.Printf("Connecting to servers ...")
 	for _, node := range otherNodes {
 		serverAddress := NodeToAddressString(node)
 		log.Printf("Connecting to server: %v", serverAddress)
