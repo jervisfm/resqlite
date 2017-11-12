@@ -65,4 +65,11 @@ which summarizes the semantics of these RPCs as well as what state (both persist
 
 We will implement these two RPCs using Google gRPCs under a RaftService declaration.
 
+### ReSqlite Service
+We will also have another service for interacting with Sqlite. The idea of this service is to take a SQL command as a request to
+be executed on a sqlite instance and then return the result of that execution back together. 
+
+The motivation for decoupling the Sqlite service from the Raft service is have clean separation of responsibilities between the
+services. The Raft protocol does not care per-se what the contents of the replicated log are.
+
 
