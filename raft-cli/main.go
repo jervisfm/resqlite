@@ -29,7 +29,7 @@ func ParseFlags() {
 
 func GetLocalPort(nodes []raft.Node) (string){
 	// The very first node is the local port value.
-	return nodes[0].Port
+	return ":" + nodes[0].Port
 }
 
 // Returns other nodes in the cluster besides this one.

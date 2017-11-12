@@ -75,7 +75,8 @@ func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
 		log.Fatalf("failed to serve: %v", err)
 	}
 
-	// 
+	// Connect to other raft nodes
+	nodeConns = ConnectToOtherNodes(otherNodes)
 	return s
 }
 
