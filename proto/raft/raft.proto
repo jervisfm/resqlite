@@ -10,14 +10,24 @@ package proto/raft;
 service Raft {
   // Sends an AppendEntries RPC.
   rpc AppendEntries (AppendEntriesRequest) returns (AppendEntriesResponse) {}
+
+  rpc RequestVote (RequestVoteRequest) returns (RequestVoteResponse) {}
 }
 
-// The request message containing the user's name.
 message AppendEntriesRequest {
   // TODO(jmuindi): Fill this out.
 }
 
-// The response message containing the greetings
+
 message AppendEntriesResponse {
+  // TODO(jmuindi): Fill this out.
+}
+
+
+message RequestVoteRequest {
+  // TODO(jmuindi): Fill this out.
+}
+
+message RequestVoteResponse {
   // TODO(jmuindi): Fill this out.
 }
