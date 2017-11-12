@@ -6,10 +6,10 @@ import (
 	"log"
 	"net"
 
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
+	//"golang.org/x/net/context"
 	pb "github.com/jervisfm/resqlite/proto/raft"
 	"github.com/jervisfm/resqlite/raft"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
