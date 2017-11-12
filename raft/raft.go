@@ -56,8 +56,8 @@ func ConnectToServer(address string) (pb.RaftClient) {
 }
 
 // Starts a Raft Server listening at the specified address port. (e.g. :50051).
-
-func StartServer(addressPort string) (*grpc.Server) {
+// otherNodes contain contact information for other nodes in the cluster.
+func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)

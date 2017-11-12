@@ -61,5 +61,5 @@ func main() {
 	log.Printf(" Starting Raft Server listening at: %v", port)
 	log.Printf("All Node addresses: %v", nodes)
 	log.Printf("Other Node addresses: %v", otherNodes)
-	raft.StartServer(port)
+	raft.StartServer(port, otherNodes)
 }
