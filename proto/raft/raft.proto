@@ -11,6 +11,7 @@ service Raft {
   // Sends an AppendEntries RPC.
   rpc AppendEntries (AppendEntriesRequest) returns (AppendEntriesResponse) {}
 
+  // Send a RequestVote RPC.
   rpc RequestVote (RequestVoteRequest) returns (RequestVoteResponse) {}
 }
 
