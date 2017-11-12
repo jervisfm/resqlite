@@ -56,6 +56,7 @@ func ConnectToServer(address string) (pb.RaftClient) {
                 log.Fatalf("did not connect: %v", err)
         }
         c := pb.NewRaftClient(conn)
+	log.Printf("Connected to node: %v", address)
 
 	return c
 }
@@ -87,9 +88,12 @@ func NodeToAddressString(input Node) string {
 
 // Connects to the other Raft nodes and returns array of Raft Client connections.
 func ConnectToOtherNodes(otherNodes []Node) ([]pb.RaftClient) {
+	
 	result := make([]pb.RaftClient, 0)
+	log.Printf("Connecting to servers ...")
 	for _, node := range otherNodes {
 		serverAddress := NodeToAddressString(node)
+		log.Printf("Connecting to server: %v", serverAddress)
 		client := ConnectToServer(serverAddress)
 		result = append(result, client)
 	}
