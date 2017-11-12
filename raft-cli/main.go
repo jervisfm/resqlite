@@ -20,8 +20,8 @@ var nodes string;
 var port string;
 
 func ParseFlags() {
-	nodesPtr := flag.String("nodes", "", "A comma separated list of node IP addresses.")
-	portPtr := flag.String("port", ":50051", "A local port address for the raft server.")
+	nodesPtr := flag.String("nodes", "", "A comma separated list of node IP:port addresses.")
+
 	flag.Parse()
 	nodes = *nodesPtr
 	port = *portPtr
@@ -30,7 +30,7 @@ func ParseFlags() {
 
 func main() {
 	ParseFlags()
-	log.Printf("Starting Raft Server listening at: %v", port)
+	log.Printf(" Starting Raft Server listening at: %v", port)
 	log.Printf("Other Node ip address: %v", nodes)
 	raft.StartServer(port)
 }
