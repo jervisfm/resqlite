@@ -50,7 +50,8 @@ var nodeConns []pb.RaftClient
 // Connects to a Raft server listening at the given address and returns a client
 // to talk to this server.
 func ConnectToServer(address string) (pb.RaftClient) {
-        // Set up a connection to the server.
+        // Set up a connection to the server. Note: this is not a blocking call.
+	// Connection will be setup in the background.
         conn, err := grpc.Dial(address, grpc.WithInsecure())
         if err != nil {
                 log.Fatalf("did not connect: %v", err)
@@ -72,12 +73,15 @@ func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
 	pb.RegisterRaftServer(s, &Server{})
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
+
+	// Intialize raft cluster.
+	nodeConns = ConnectToOtherNodes(otherNodes)
+
+	// Note: the Serve call is blocking.
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 
-	// Connect to other raft nodes
-	nodeConns = ConnectToOtherNodes(otherNodes)
 	return s
 }
 
