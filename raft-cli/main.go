@@ -38,6 +38,14 @@ func GetLocalPort(nodes []Node) (string){
 	return nodes[0].port
 }
 
+// Returns other nodes in the cluster besides this one.
+func GetOtherNodes() []Node {
+	result := append([]Node(nil), nodes...)
+	// Delete first element.
+	result = append(result[:0], result[1:]...)
+	return result
+}
+
 func ParseNodes(input string) ([]Node) {
 	pieces := strings.Split(input, ",")
 	result := make([]Node, 0)
@@ -55,7 +63,9 @@ func ParseNodePortPairString(input string) (Node){
 
 func main() {
 	ParseFlags()
+	otherNodes := GetOtherNodes()
 	log.Printf(" Starting Raft Server listening at: %v", port)
-	log.Printf("Other Node ip address: %v", nodes)
+	log.Printf("All Node addresses: %v", nodes)
+	log.Printf("Other Node addresses: %v", otherNodes)
 	raft.StartServer(port)
 }
