@@ -6,9 +6,9 @@ import (
 	"log"
 	"net"
 
+	pb "github.com/jervisfm/resqlite/proto/raft"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	pb "github.com/jervisfm/resqlite/proto/raft"
 	"google.golang.org/grpc/reflection"
 )
 
