@@ -16,7 +16,7 @@ import (
 
 
 // Flags
-var nodes []Node;
+var nodes []raft.Node;
 var port string;
 
 func ParseFlags() {
@@ -26,38 +26,32 @@ func ParseFlags() {
 	port = GetLocalPort(nodes)
 }
 
-type Node struct {
-	// A hostanme of the node either in DNS or IP form e.g. localhost
-	hostname string
-	// A port number for the node. e.g. :50051
-	port string
-}
 
-func GetLocalPort(nodes []Node) (string){
+func GetLocalPort(nodes []raft.Node) (string){
 	// The very first node is the local port value.
-	return nodes[0].port
+	return nodes[0].Port
 }
 
 // Returns other nodes in the cluster besides this one.
-func GetOtherNodes() []Node {
-	result := append([]Node(nil), nodes...)
+func GetOtherNodes() []raft.Node {
+	result := append([]raft.Node(nil), nodes...)
 	// Delete first element.
 	result = append(result[:0], result[1:]...)
 	return result
 }
 
-func ParseNodes(input string) ([]Node) {
+func ParseNodes(input string) ([]raft.Node) {
 	pieces := strings.Split(input, ",")
-	result := make([]Node, 0)
+	result := make([]raft.Node, 0)
 	for _, nodeString := range pieces {
 		result = append(result, ParseNodePortPairString(nodeString))
 	}
 	return result
 }
 
-func ParseNodePortPairString(input string) (Node){
+func ParseNodePortPairString(input string) (raft.Node){
 	pieces := strings.Split(input, ":")
-	return Node{hostname: pieces[0], port: pieces[1]}
+	return raft.Node{Hostname: pieces[0], Port: pieces[1]}
 }
 
 

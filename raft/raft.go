@@ -33,6 +33,14 @@ func (s *Server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*p
 	return &pb.RequestVoteResponse{}, nil
 }
 
+// Specification for a node
+type Node struct {
+	// A hostanme of the node either in DNS or IP form e.g. localhost
+	Hostname string
+	// A port number for the node. e.g. :50051
+	Port string
+}
+
 
 // Connects to a Raft server listening at the given address and returns a client
 // to talk to this server.
@@ -48,6 +56,7 @@ func ConnectToServer(address string) (pb.RaftClient) {
 }
 
 // Starts a Raft Server listening at the specified address port. (e.g. :50051).
+
 func StartServer(addressPort string) (*grpc.Server) {
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
