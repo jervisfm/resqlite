@@ -40,7 +40,7 @@ func GetLocalPort(nodes []Node) (string){
 
 func ParseNodes(input string) ([]Node) {
 	pieces := strings.Split(input, ",")
-	result := make([]Node, 5)
+	result := make([]Node, 0)
 	for _, nodeString := range pieces {
 		result = append(result, ParseNodePortPairString(nodeString))
 	}
