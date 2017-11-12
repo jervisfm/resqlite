@@ -74,8 +74,8 @@ func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
 	reflection.Register(s)
 
 	// Intialize raft cluster.
-	nodeConns = ConnectToOtherNodes(otherNodes)
-
+	go InitializeRaft(addressPort, otherNodes)
+		
 	// Note: the Serve call is blocking.
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
@@ -100,4 +100,9 @@ func ConnectToOtherNodes(otherNodes []Node) ([]pb.RaftClient) {
 		result = append(result, client)
 	}
 	return result
+}
+
+// Intializes Raft on server startup.
+func InitializeRaft(addressPort string, otherNodes []Node) {
+	nodeConns = ConnectToOtherNodes(otherNodes)
 }
