@@ -53,4 +53,16 @@ This puts the tool under golang/bin so make sure that's part for your $PATH.
 $ export PATH=$PATH:$GOPATH/bin
 ```
 
+### Raft Service
+Our simplify ease of testing, our cluster  would consist of 3 nodes such that we can tolerate any single node failture.
+
+From the Raft Paper, we need to implement two RPCS:
+* RequestVotes
+* AppendEntries
+
+We refer the reader to published page 308 of the RAFT paper (http://www.scs.stanford.edu/17au-cs244b/sched/readings/raft.pdf)
+which summarizes the semantics of these RPCs as well as what state (both persistent and volatile) needs to be maintained on each node.
+
+We will implement these two RPCs using Google gRPCs under a RaftService declaration.
+
 
