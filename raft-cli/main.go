@@ -3,14 +3,14 @@
 package main
 
 import (
-	"log"
-	"net"
+	//"log"
+	//"net"
 
 	//"golang.org/x/net/context"
-	pb "github.com/jervisfm/resqlite/proto/raft"
+	//pb "github.com/jervisfm/resqlite/proto/raft"
 	"github.com/jervisfm/resqlite/raft"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	//"google.golang.org/grpc"
+	//"google.golang.org/grpc/reflection"
 )
 
 const (
@@ -18,15 +18,5 @@ const (
 )
 
 func main() {
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	s := grpc.NewServer()
-	pb.RegisterRaftServer(s, &raft.Server{})
-	// Register reflection service on gRPC server.
-	reflection.Register(s)
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+	raft.StartServer(port)
 }
