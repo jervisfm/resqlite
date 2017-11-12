@@ -72,4 +72,19 @@ be executed on a sqlite instance and then return the result of that execution ba
 The motivation for decoupling the Sqlite service from the Raft service is have clean separation of responsibilities between the
 services. The Raft protocol does not care per-se what the contents of the replicated log are.
 
+### Implementation Plan. 
+The following is a proposed implementation structure for the project:
+
+* raft/raft.go: Implements main raft replication business logic as a library
+* raft/raft_node.go (server implementation binary that can a basic raft node)
+** To test the raft implemnetation we can start from scractch and use a constant set of data to replicate.
+
+* resqlite_server/resqlite.go (Library that leverages Raft to replicate sqlite statements and implement replicated sqlite service)
+* resqlite_server/main.go (server binary that nodes runs). This involves:
+- Replicate new entry to other nodes.
+- Add it locally on success and execute
+- Reply to client with result.
+
+* resqlite_client/resqlite.go (library)
+* resqlite_client/main.go (client binary) <- Perhaps this can be replicaed with polyglot (https://github.com/grpc-ecosystem/polyglot#server-reflection)
 
