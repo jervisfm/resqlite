@@ -77,7 +77,7 @@ The following is a proposed implementation structure for the project:
 
 * raft/raft.go: Implements main raft replication business logic as a library
 * raft/raft_node.go (server implementation binary that can a basic raft node)
-    -- To test the raft implemnetation we can start from scractch and use a constant set of data to replicate.
+    - To test the raft implemnetation we can start from scractch and use a constant set of data to replicate.
 
 * resqlite_server/resqlite.go (Library that leverages Raft to replicate sqlite statements and implement replicated sqlite service)
 * resqlite_server/main.go (server binary that nodes runs). This involves:
