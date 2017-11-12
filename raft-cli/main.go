@@ -24,7 +24,7 @@ func ParseFlags() {
 
 	flag.Parse()
 	nodes = *nodesPtr
-	port = *portPtr
+	//port = *portPtr
 }
 
 
