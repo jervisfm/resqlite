@@ -102,7 +102,21 @@ func ConnectToOtherNodes(otherNodes []Node) ([]pb.RaftClient) {
 	return result
 }
 
+func TestNodeConnections(noteConns []pb.RaftClient) {
+	// Try a test RPC call to other nodes.
+	log.Printf("Have client conns: %v", nodeConns)
+	for _, nodeConn := range nodeConns {
+		result, err := nodeConn.RequestVote(context.Background(), &pb.RequestVoteRequest{})
+		if err != nil {
+			log.Printf("Error on connection: %v", err)
+		}
+		log.Printf("Got Response: %v", result)
+	}
+
+}
+
 // Intializes Raft on server startup.
 func InitializeRaft(addressPort string, otherNodes []Node) {
 	nodeConns = ConnectToOtherNodes(otherNodes)
+	TestNodeConnections(nodeConns)
 }
