@@ -3,13 +3,13 @@
 package raft
 
 import (
-	"log"
-	"net"
+	//"log"
+	//"net"
 
 	pb "github.com/jervisfm/resqlite/proto/raft"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	//"google.golang.org/grpc"
+	//"google.golang.org/grpc/reflection"
 )
 
 const (
@@ -20,12 +20,12 @@ const (
 type Server struct{}
 
 // AppendEntries implements raft.RaftServer
-func (s *server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
+func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
 	// TODO(jmuindi): Implement.
 	return &pb.AppendEntriesResponse{}, nil
 }
 
-func (s *server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*pb.RequestVoteResponse, error) {
+func (s *Server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*pb.RequestVoteResponse, error) {
 	// TODO(jmuindi): Implement.
 	return &pb.RequestVoteResponse{}, nil
 }
