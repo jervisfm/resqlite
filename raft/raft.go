@@ -18,21 +18,24 @@ const (
 	port = ":50051"
 )
 
-// server is used to implement raft.RaftServer
+// server is used to implement pb.RaftServer
 type Server struct{}
 
-// AppendEntries implements raft.RaftServer
+// AppendEntries implementation for pb.RaftServer
 func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
 	// TODO(jmuindi): Implement.
 	return &pb.AppendEntriesResponse{}, nil
 }
 
+// RequestVote implementation for raft.RaftServer
 func (s *Server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*pb.RequestVoteResponse, error) {
 	// TODO(jmuindi): Implement.
 	return &pb.RequestVoteResponse{}, nil
 }
 
 
+// Connects to a Raft server listening at the given address and returns a client
+// to talk to this server.
 func ConnectToServer(address string) (pb.RaftClient) {
         // Set up a connection to the server.
         conn, err := grpc.Dial(address, grpc.WithInsecure())
@@ -44,6 +47,7 @@ func ConnectToServer(address string) (pb.RaftClient) {
 	return c
 }
 
+// Starts a Raft Server listening at the specified address port. (e.g. :50051).
 func StartServer(addressPort string) (*grpc.Server) {
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
