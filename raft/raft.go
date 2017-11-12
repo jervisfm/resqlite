@@ -37,7 +37,6 @@ func ConnectToServer(address string) (pb.RaftClient) {
         if err != nil {
                 log.Fatalf("did not connect: %v", err)
         }
-        defer conn.Close()
         c := pb.NewRaftClient(conn)
 
 	return c
