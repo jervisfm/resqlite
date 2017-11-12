@@ -31,4 +31,10 @@ SQL statements need to be deterministic and cannot make use of non-deterministic
 For implementation, we make use of Go programming language. Please visit https://golang.org/dl/ to get the lastest
 version of Goland. This project was created with Go lang 1.9
 
+Also Install dep tool for Golang dependency management.
+
+```
+$ go get -u github.com/golang/dep/cmd/dep
+```
+
 For RPC setup, we make use of the gRPC library from Google.
