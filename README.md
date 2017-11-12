@@ -1,7 +1,7 @@
-ReSqlite 
+ReSqlite
 ========
 
 # Introduction
-ReSqlite is an extension of Sqlite that aism to add basic replication functionality to Sqlite databases.
+ReSqlite is an extension of Sqlite that aims to add basic replication functionality to Sqlite database.
 
 
