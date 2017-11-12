@@ -42,6 +42,11 @@ type Node struct {
 }
 
 
+// Variables
+
+// Tracks connections to other raft nodes.
+var nodeConns []pb.RaftClient
+
 // Connects to a Raft server listening at the given address and returns a client
 // to talk to this server.
 func ConnectToServer(address string) (pb.RaftClient) {
@@ -58,7 +63,7 @@ func ConnectToServer(address string) (pb.RaftClient) {
 // Starts a Raft Server listening at the specified address port. (e.g. :50051).
 // otherNodes contain contact information for other nodes in the cluster.
 func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
-	lis, err := net.Listen("tcp", port)
+	lis, err := net.Listen("tcp", addressPort)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -69,5 +74,9 @@ func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+
+	// 
 	return s
 }
+
+
