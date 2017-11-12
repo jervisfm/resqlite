@@ -28,6 +28,7 @@ raw SQL statements and using that to ensure all the nodes arrive at the same end
 SQL statements need to be deterministic and cannot make use of non-deterministic functions such as random().
 
 ## Project Setup / Dependencies
-For implementation, we make use of Go programming language.
+For implementation, we make use of Go programming language. Please visit https://golang.org/dl/ to get the lastest
+version of Goland. This project was created with Go lang 1.9
 
 For RPC setup, we make use of the gRPC library from Google.
