@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"math/rand"
 )
 
 const (
@@ -34,6 +35,15 @@ type Server struct{
 
 	serverState ServerState
 
+	raftConfig RaftConfig
+
+}
+
+// Contains Raft configuration parameters
+type RaftConfig struct {
+
+	// Amount of time to wait before starting an election.
+  	electionTimeoutMillis int
 
 }
 
@@ -85,7 +95,9 @@ func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterRaftServer(s, &Server{})
+	raftServer := GetInitialServer()
+	log.Printf("Initial Server state: %v", raftServer)
+	pb.RegisterRaftServer(s, &raftServer)
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 
@@ -100,6 +112,23 @@ func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
 	return s
 }
 
+// Returns initial server state.
+func GetInitialServer() Server {
+	result := Server {
+		serverState: Follower,
+		raftConfig: RaftConfig{
+			electionTimeoutMillis: PickElectionTimeOutMillis(),
+		},
+	}
+	return result
+}
+
+// Picks a randomized time for the election timeout.
+func PickElectionTimeOutMillis() int {
+	baseTimeMs := 300
+	randomOffsetMs := rand.Intn(100)
+	return baseTimeMs + randomOffsetMs
+}
 
 func NodeToAddressString(input Node) string {
 	return input.Hostname + ":" +  input.Port
