@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"math/rand"
+	"time"
 )
 
 const (
@@ -126,6 +127,8 @@ func GetInitialServer() Server {
 // Picks a randomized time for the election timeout.
 func PickElectionTimeOutMillis() int {
 	baseTimeMs := 300
+	// Go random number is deterministic by default so we re-seed to get randomized behavior we want.
+	rand.Seed(time.Now().Unix())
 	randomOffsetMs := rand.Intn(100)
 	return baseTimeMs + randomOffsetMs
 }
