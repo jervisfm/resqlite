@@ -40,7 +40,11 @@ message AppendEntriesRequest {
 
 
 message AppendEntriesResponse {
-  
+  // Current term for leader to update itself.
+  int64 term = 1;
+
+  // True if follower contained entry matching prevLogIndex and prevLogTerm
+  bool success = 2;
 }
 
 
