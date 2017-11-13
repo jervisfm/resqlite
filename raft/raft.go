@@ -38,7 +38,34 @@ type Server struct{
 
 	raftConfig RaftConfig
 
+	raftState RaftState
+
 }
+
+// Contains all the inmemory state needed by the Raft algorithm
+type RaftState struct {
+
+	volatileState RaftVolatileState
+    volatileLeaderState RaftLeaderState
+}
+
+// TODO(jmuindi): Add support for persistent state; perhaps we can use a sqlite db underneath?
+type RaftPersistentState struct {
+	currentTerm int64
+	votedFor string
+	log []string
+}
+
+type RaftVolatileState struct {
+	commitIndex int64
+	lastApplied int64
+}
+
+type RaftLeaderState struct {
+	nextIndex []int64
+	matchIndex []int64
+}
+
 
 // Contains Raft configuration parameters
 type RaftConfig struct {

@@ -6,7 +6,7 @@ import (
 	"flag"
 	"log"
 	//"net"
-"strings"
+	"strings"
 	//"golang.org/x/net/context"
 	//pb "github.com/jervisfm/resqlite/proto/raft"
 	"github.com/jervisfm/resqlite/raft"
@@ -14,10 +14,9 @@ import (
 	//"google.golang.org/grpc/reflection"
 )
 
-
 // Flags
-var nodes []raft.Node;
-var port string;
+var nodes []raft.Node
+var port string
 
 func ParseFlags() {
 	nodesPtr := flag.String("nodes", "", "A comma separated list of node IP:port addresses. The first node is presumed to be this node and the port number is what used to start the local raft server")
@@ -26,8 +25,7 @@ func ParseFlags() {
 	port = GetLocalPort(nodes)
 }
 
-
-func GetLocalPort(nodes []raft.Node) (string){
+func GetLocalPort(nodes []raft.Node) string {
 	// The very first node is the local port value.
 	return ":" + nodes[0].Port
 }
@@ -40,7 +38,7 @@ func GetOtherNodes() []raft.Node {
 	return result
 }
 
-func ParseNodes(input string) ([]raft.Node) {
+func ParseNodes(input string) []raft.Node {
 	pieces := strings.Split(input, ",")
 	result := make([]raft.Node, 0)
 	for _, nodeString := range pieces {
@@ -49,11 +47,10 @@ func ParseNodes(input string) ([]raft.Node) {
 	return result
 }
 
-func ParseNodePortPairString(input string) (raft.Node){
+func ParseNodePortPairString(input string) raft.Node {
 	pieces := strings.Split(input, ":")
 	return raft.Node{Hostname: pieces[0], Port: pieces[1]}
 }
-
 
 func main() {
 	ParseFlags()
