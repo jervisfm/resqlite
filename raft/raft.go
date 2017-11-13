@@ -45,11 +45,12 @@ type Server struct{
 // Contains all the inmemory state needed by the Raft algorithm
 type RaftState struct {
 
+	// TODO(jmuindi): Add support for real persistent state; perhaps we can use a sqlite db underneath?
+	persistentState RaftPersistentState
 	volatileState RaftVolatileState
     volatileLeaderState RaftLeaderState
 }
 
-// TODO(jmuindi): Add support for persistent state; perhaps we can use a sqlite db underneath?
 type RaftPersistentState struct {
 	currentTerm int64
 	votedFor string
