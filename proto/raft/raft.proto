@@ -28,15 +28,19 @@ message AppendEntriesRequest {
   // Index of the log entry immediately preceeding the new ones
   int64 prevLogIndex = 3;
 
+  // Term of prevLogIndex entry
+  int64 prevLogTerm = 4;
+
   // TODO(jmuindi): Add suppport for entries messages.
+  // entries = 5
 
   // Leaders commit index.
-  int64 leaderCommit = 4;
+  int64 leaderCommit = 6;
 }
 
 
 message AppendEntriesResponse {
-  // TODO(jmuindi): Fill this out.
+  
 }
 
 
