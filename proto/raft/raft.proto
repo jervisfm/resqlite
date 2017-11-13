@@ -15,6 +15,8 @@ service Raft {
   rpc RequestVote (RequestVoteRequest) returns (RequestVoteResponse) {}
 }
 
+// For the message definitions here, please refer to Figure 2 of the Raft paper.
+
 message AppendEntriesRequest {
   // TODO(jmuindi): Fill this out.
 }
@@ -25,8 +27,20 @@ message AppendEntriesResponse {
 }
 
 
+// This invoked by candidated to gather votes.
 message RequestVoteRequest {
-  // TODO(jmuindi): Fill this out.
+  // Candidate's term
+  int64 term = 1;
+
+  // Candidate requesting the vote.
+  // This is the fully qualified name for the node (hostname/ip + port number).
+  string candidateId = 2;
+
+  // Index of candidate's last log entry
+  int64 lastLogIndex = 3;
+
+  // Term of candidate's last log entry
+  int64 lastLogTerm = 4;
 }
 
 message RequestVoteResponse {
