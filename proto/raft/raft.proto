@@ -18,7 +18,20 @@ service Raft {
 // For the message definitions here, please refer to Figure 2 of the Raft paper.
 
 message AppendEntriesRequest {
-  // TODO(jmuindi): Fill this out.
+  // Leader's term
+  int64 term = 1;
+
+  // This is so that follower can redirect clients. Leader ID is hostname/IP + Port number of the
+  // the leader. E.g. something like 10.10.1.2:50103
+  string leaderId = 2;
+
+  // Index of the log entry immediately preceeding the new ones
+  int64 prevLogIndex = 3;
+
+  // TODO(jmuindi): Add suppport for entries messages.
+
+  // Leaders commit index.
+  int64 leaderCommit = 4;
 }
 
 
