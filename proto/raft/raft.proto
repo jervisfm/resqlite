@@ -31,13 +31,19 @@ message AppendEntriesRequest {
   // Term of prevLogIndex entry
   int64 prevLogTerm = 4;
 
-  // TODO(jmuindi): Add suppport for entries messages.
-  // entries = 5
+  // Log entries to store. This can be empty for just for heartbeat messages.
+  // Can send more than one for efficiency reasons.
+  repeated LogEntry entries = 5;
 
   // Leaders commit index.
   int64 leaderCommit = 6;
 }
 
+
+message LogEntry {
+  // Data to be appended to the replicated log.
+  string data = 1;
+}
 
 message AppendEntriesResponse {
   // Current term for leader to update itself.
