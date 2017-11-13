@@ -18,8 +18,24 @@ const (
 	port = ":50051"
 )
 
+// Enum for the possible server states.
+type ServerState int
+const (
+	// Followers only respond to request from other servers
+	Follower = iota
+	// Candidate is vying to become leaders
+	Candidate
+	// Leaders accept/process client process and continue until they fail.
+	Leader
+)
+
 // server is used to implement pb.RaftServer
-type Server struct{}
+type Server struct{
+
+	serverState ServerState
+
+
+}
 
 // AppendEntries implementation for pb.RaftServer
 func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
