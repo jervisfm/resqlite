@@ -44,5 +44,9 @@ message RequestVoteRequest {
 }
 
 message RequestVoteResponse {
-  // TODO(jmuindi): Fill this out.
+  // Current term for candidate to update themselves.
+  int64 term = 1;
+
+  // If true, indicates that the node has voted for the candidate to be a leader.
+  bool voteGranted = 2;
 }
