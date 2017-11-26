@@ -16,6 +16,7 @@ import (
 	"github.com/jervisfm/resqlite/util"
 
 	"google.golang.org/grpc/codes"
+	"sync"
 )
 
 const (
@@ -500,6 +501,30 @@ func GetLastLogTerm() int64 {
 	return 0
 }
 
+
+// Requests votes from all the other nodes to make us a leader. Returns number of
+// currently received votes
+func RequestVotesFromOtherNodes() int64 {
+
+	util.Log(util.INFO, "Have %v votes at start", GetVoteCount())
+	otherNodes :=  GetOtherNodes()
+	util.Log(util.INFO, "Requesting votes from other nodes: %v", GetOtherNodes())
+
+	// Make RPCs in parallel but wait for all of them to complete.
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(len(otherNodes))
+
+	for _, node := range otherNodes {
+		go func() {
+			defer waitGroup.Done()
+			RequestVoteFromNode(node)
+		}()
+	}
+
+	waitGroup.Wait()
+	util.Log(util.INFO, "Have %v votes at end", GetVoteCount())
+	return GetVoteCount()
+}
 
 // Requests a vote from the given node.
 func RequestVoteFromNode(node pb.RaftClient) {
