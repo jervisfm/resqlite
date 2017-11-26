@@ -54,7 +54,7 @@ type Event struct {
 
 // Type holder RPC events to be processed.
 type RpcEvent struct {
-	requestVote RaftAppendEntriesRpcEvent
+	requestVote RaftRequestVoteRpcEvent
 	appendEntries RaftAppendEntriesRpcEvent
 }
 
@@ -113,6 +113,8 @@ func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest)
 // RequestVote implementation for raft.RaftServer
 func (s *Server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*pb.RequestVoteResponse, error) {
 	// TODO(jmuindi): Implement.
+
+
 	return &pb.RequestVoteResponse{}, nil
 }
 
