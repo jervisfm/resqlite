@@ -14,6 +14,7 @@ import (
 	"time"
 	//"math/bits"
 	"github.com/jervisfm/resqlite/util"
+	"go/build"
 )
 
 const (
@@ -66,8 +67,8 @@ type Event struct {
 
 // Type holder RPC events to be processed.
 type RpcEvent struct {
-	requestVote RaftRequestVoteRpcEvent
-	appendEntries RaftAppendEntriesRpcEvent
+	requestVote* RaftRequestVoteRpcEvent
+	appendEntries* RaftAppendEntriesRpcEvent
 }
 
 // Type for request vote rpc event.
@@ -121,7 +122,7 @@ func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest)
 	replyChan := make(chan pb.AppendEntriesResponse)
 	event := Event {
 		rpc: RpcEvent{
-			appendEntries: RaftAppendEntriesRpcEvent{
+			appendEntries: &RaftAppendEntriesRpcEvent{
 				request: *in,
 				responseChan: replyChan,
 			},
@@ -138,7 +139,7 @@ func (s *Server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*p
 	replyChan := make(chan pb.RequestVoteResponse)
 	event := Event{
 		rpc: RpcEvent{
-			requestVote:RaftRequestVoteRpcEvent{
+			requestVote:&RaftRequestVoteRpcEvent{
 				request: *in,
 				responseChan: replyChan,
 			},
@@ -354,6 +355,13 @@ func FollowerLoop() {
 		}
 
 		// TODO(jmuindi): Process Any RPCs that we have.
+		select {
+		case event := <-raftServer.events:
+			util.Log(util.VERBOSE, "Processing %v", event)
+			
+		default:
+			util.Log(util.VERBOSE, "No Events to process")
+		}
 
 	}
 
