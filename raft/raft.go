@@ -256,6 +256,17 @@ func TestNodeConnections(nodeConns []pb.RaftClient) {
 
 }
 
+// Returns the Hostname/IP:Port info for the local node. This serves as the
+// identifier for the node.
+func GetNodeId(node Node) string {
+	return NodeToAddressString(node)
+}
+
+// Returns identifier for this server.
+func GetLocalNodeId() string {
+	return GetNodeId(raftServer.localNode)
+}
+
 // Initializes Raft on server startup.
 func InitializeRaft(addressPort string, otherNodes []Node) {
 	StartServerLoop()
@@ -303,7 +314,8 @@ func IncrementElectionTerm() {
 }
 
 func VoteForSelf() {
-	raftServer.raftState.persistentState.votedFor = ""
+	myId := GetLocalNodeId()
+	raftServer.raftState.persistentState.votedFor = myId
 }
 
 // Instructions that followers would be processing.
