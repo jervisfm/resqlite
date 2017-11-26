@@ -307,6 +307,14 @@ func CandidateLoop() {
 // Instructions that leaders would be performing.
 func LeaderLoop() {
 	// TOOD(jmuindi): implement.
+	// Overview:
+	// - Reinitialize volatile leader state upon first leader succession.
+	// - Send initial empty append entries rpcs to clients as heartbeats. Repeat
+	//   to avoid election timeout.
+	// - Process commands from end-user clients. Respond after data replicated on
+	//   majority of nodes. i.e. append to local log, respond after entry applied to
+	//   state machine.
+	// - See Figure 2 from Raft paper for 2 other leader requirements.
 }
 
 // Overall loop for the server.
