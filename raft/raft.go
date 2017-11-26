@@ -53,9 +53,12 @@ type Server struct {
 	events chan Event
 
 	// Unix time in millis for when last hearbeat received when in non-leader
-	// follower mode or when election started in candidate mode. Used to determine
-	// when election timeouts occur.
+	// follower mode. Used to determine when election timeouts occur in follower status.
 	lastHeartbeatTimeMillis int64
+
+	// Unix time in millis for when the election was started when in candidate mode.
+	// Used to determine when election timeouts occur in candidate status.
+	startElectionTimeMillis int64
 
 	// Counts number of nodes in cluster that have chosen this node to be a leader
 	receivedVoteCount int64
