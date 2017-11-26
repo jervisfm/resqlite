@@ -22,6 +22,10 @@ const (
 // Only output to INFO level.
 var DebugLevel int = INFO
 
+// Logs a message if debugging upto to given level is enabled.
+// debugLevel: One of {ERROR, WARN, INFO, VERBOSE, EXTRA_VERBOSE}
+// format: format string
+// v : optional list of formatted parameters in format string.
 func Log(debugLevel int, format string, v ...interface{}) {
 	if debugLevel < 0 {
 		return
