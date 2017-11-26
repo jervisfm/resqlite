@@ -15,6 +15,7 @@ import (
 	//"math/bits"
 	"github.com/jervisfm/resqlite/util"
 	"go/build"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -338,6 +339,11 @@ func VoteForServer(serverToVoteFor Node) {
 	raftServer.raftState.persistentState.votedFor = serverId
 }
 
+// Returns current raft term.
+func RaftCurrentTerm() int64 {
+	return raftServer.raftState.persistentState.currentTerm
+}
+
 // Instructions that followers would be processing.
 func FollowerLoop() {
 
@@ -380,8 +386,20 @@ func handleRpcEvent(event Event) {
 
 // Handles request vote rpc.
 func handleRequestVoteRpc(event *RaftRequestVoteRpcEvent) {
-
-	// TODO(jmuindi): Implement
+	result := pb.RequestVoteResponse{}
+	currentTerm := RaftCurrentTerm()
+	result.Term = currentTerm
+	if event.request.Term < currentTerm {
+		result.VoteGranted = false
+	} else if AlreadyVoted() {
+		result.VoteGranted = false
+	} else {
+		// TODO(jmuindi): Only grant vote if candidate log at least uptodate
+		// as receivers (Section 5.2; 5.4)
+		result.VoteGranted = true
+	}
+	result.ResponseStatus = 0
+	event.responseChan<- result
 }
 
 // Handles append entries rpc.
