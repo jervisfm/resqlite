@@ -203,7 +203,9 @@ func GetInitialServer() Server {
 			electionTimeoutMillis: PickElectionTimeOutMillis(),
 		},
 		events: make(chan Event),
-		
+		// We initialize last heartbeat time at startup because all servers start out
+		// in follower and this allows a node to determine when it should be a candidate.
+		lastHeartbeatTimeMillis: UnixMillis(),
 	}
 	return result
 }
