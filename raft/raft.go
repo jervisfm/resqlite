@@ -50,8 +50,12 @@ type Server struct {
 	events chan Event
 
 	// Unix time in millis for when last hearbeat received when in non-leader
-	// mode.
+	// follower mode or when election started in candidate mode. Used to determine
+	// when election timeouts occur.
 	lastHeartbeatTimeMillis int64
+
+	// Counts number of nodes in cluster that have chosen this node to be a leader
+	receivedVoteCount int64
 }
 
 // Overall type for the messages processed by the event-loop.
@@ -294,6 +298,12 @@ func IsElectionTimeoutElapsed() bool {
 	}
 }
 
+// Resets the election time out. This restarts amount of time that has to pass
+// before an election timeout occurs. Election timeouts lead to new elections.
+func ResetElectionTimeOut() {
+	raftServer.lastHeartbeatTimeMillis = UnixMillis()
+}
+
 // Returns true if this node already voted for a node to be a leader.
 func AlreadyVoted() bool {
 	if raftServer.raftState.persistentState.votedFor != "" {
@@ -311,11 +321,13 @@ func ChangeToCandidateStatus() {
 func IncrementElectionTerm() {
 	raftServer.raftState.persistentState.votedFor = ""
 	raftServer.raftState.persistentState.currentTerm++
+	raftServer.receivedVoteCount = 0
 }
 
 func VoteForSelf() {
 	myId := GetLocalNodeId()
 	raftServer.raftState.persistentState.votedFor = myId
+	raftServer.receivedVoteCount++
 }
 
 
