@@ -108,8 +108,19 @@ type RaftConfig struct {
 
 // AppendEntries implementation for pb.RaftServer
 func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
-	// TODO(jmuindi): Implement.
-	return &pb.AppendEntriesResponse{}, nil
+	replyChan := make(chan pb.AppendEntriesResponse)
+	event := Event {
+		rpc: RpcEvent{
+			appendEntries: RaftAppendEntriesRpcEvent{
+				request: *in,
+				responseChan: replyChan,
+			},
+		},
+	}
+	raftServer.events<- event
+
+	result := replyChan
+	return &result, nil
 }
 
 // RequestVote implementation for raft.RaftServer
