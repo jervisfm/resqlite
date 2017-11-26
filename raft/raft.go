@@ -488,6 +488,20 @@ func IncrementVoteCount() {
 	raftServer.receivedVoteCount++
 }
 
+// Returns the index of the last entry in the raft log. Index is 1-based.
+func GetLastLogIndex() int64 {
+	// TODO(jmuindi): Implement once we have raft log up.
+	return 0
+}
+
+// Returns the term for the last entry in the raft log.
+func GetLastLogTerm() int64 {
+	// TODO(jmuindi): Implement once we have persistent log entry.
+	return 0
+}
+
+
+
 // Instructions that leaders would be performing.
 func LeaderLoop() {
 	// TOOD(jmuindi): implement.
