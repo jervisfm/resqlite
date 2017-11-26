@@ -456,6 +456,11 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 
 }
 
+// Returns other nodes client connections
+func GetOtherNodes() []pb.RaftClient {
+	return raftServer.otherNodes
+}
+
 // Instructions that candidate would be processing.
 func CandidateLoop() {
 	// TOOD(jmuindi): implement.
@@ -473,6 +478,14 @@ func CandidateLoop() {
 
 	IncrementElectionTerm()
 	VoteForSelf()
+	RequestVotesFromOtherNodes()
+
+
+}
+
+// Increments the number of received votes.
+func IncrementVoteCount() {
+	raftServer.receivedVoteCount++
 }
 
 // Instructions that leaders would be performing.
