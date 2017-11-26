@@ -57,6 +57,10 @@ type Server struct {
 	// when election timeouts occur.
 	lastHeartbeatTimeMillis int64
 
+	// True if we have received a heartbeat from a leader. Primary Purpose of this field to
+	// determine whether we hear from a leader while in candidate status.
+	receivedHeartbeat bool
+
 	// Counts number of nodes in cluster that have chosen this node to be a leader
 	receivedVoteCount int64
 }
@@ -325,6 +329,7 @@ func IncrementElectionTerm() {
 	raftServer.raftState.persistentState.votedFor = ""
 	raftServer.raftState.persistentState.currentTerm++
 	raftServer.receivedVoteCount = 0
+	raftServer.receivedHeartbeat = false
 }
 
 func VoteForSelf() {
