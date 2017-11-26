@@ -227,3 +227,10 @@ func StartServerLoop() {
 	}
 }
 
+// Returns the current time since unix epoch in milliseconds.
+func UnixMillis() int {
+	now := time.Now()
+	unixNano := now.UnixNano()
+	unixMillis := unixNano / 1000000
+	return unixMillis
+}
