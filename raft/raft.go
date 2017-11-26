@@ -13,8 +13,6 @@ import (
 	"math/rand"
 	"time"
 	//"math/bits"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -119,7 +117,7 @@ func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest)
 	}
 	raftServer.events<- event
 
-	result := replyChan
+	result := <-replyChan
 	return &result, nil
 }
 
