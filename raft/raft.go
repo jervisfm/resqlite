@@ -6,8 +6,6 @@ import (
 	"log"
 	"net"
 
-
-
 	pb "github.com/jervisfm/resqlite/proto/raft"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -22,6 +20,7 @@ const (
 
 // Enum for the possible server states.
 type ServerState int
+
 const (
 	// Followers only respond to request from other servers
 	Follower = iota
@@ -32,29 +31,27 @@ const (
 )
 
 // server is used to implement pb.RaftServer
-type Server struct{
-
+type Server struct {
 	serverState ServerState
 
 	raftConfig RaftConfig
 
 	raftState RaftState
-
 }
 
 // Contains all the inmemory state needed by the Raft algorithm
 type RaftState struct {
 
 	// TODO(jmuindi): Add support for real persistent state; perhaps we can use a sqlite db underneath?
-	persistentState RaftPersistentState
-	volatileState RaftVolatileState
-    volatileLeaderState RaftLeaderState
+	persistentState     RaftPersistentState
+	volatileState       RaftVolatileState
+	volatileLeaderState RaftLeaderState
 }
 
 type RaftPersistentState struct {
 	currentTerm int64
-	votedFor string
-	log []string
+	votedFor    string
+	log         []string
 }
 
 type RaftVolatileState struct {
@@ -63,17 +60,15 @@ type RaftVolatileState struct {
 }
 
 type RaftLeaderState struct {
-	nextIndex []int64
+	nextIndex  []int64
 	matchIndex []int64
 }
-
 
 // Contains Raft configuration parameters
 type RaftConfig struct {
 
 	// Amount of time to wait before starting an election.
-  	electionTimeoutMillis int
-
+	electionTimeoutMillis int
 }
 
 // AppendEntries implementation for pb.RaftServer
@@ -96,7 +91,6 @@ type Node struct {
 	Port string
 }
 
-
 // Variables
 
 // Tracks connections to other raft nodes.
@@ -104,21 +98,21 @@ var nodeConns []pb.RaftClient
 
 // Connects to a Raft server listening at the given address and returns a client
 // to talk to this server.
-func ConnectToServer(address string) (pb.RaftClient) {
-        // Set up a connection to the server. Note: this is not a blocking call.
+func ConnectToServer(address string) pb.RaftClient {
+	// Set up a connection to the server. Note: this is not a blocking call.
 	// Connection will be setup in the background.
-        conn, err := grpc.Dial(address, grpc.WithInsecure())
-        if err != nil {
-                log.Fatalf("did not connect: %v", err)
-        }
-        c := pb.NewRaftClient(conn)
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	c := pb.NewRaftClient(conn)
 
 	return c
 }
 
 // Starts a Raft Server listening at the specified address port. (e.g. :50051).
 // otherNodes contain contact information for other nodes in the cluster.
-func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
+func StartServer(addressPort string, otherNodes []Node) *grpc.Server {
 	lis, err := net.Listen("tcp", addressPort)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -132,7 +126,7 @@ func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
 
 	// Intialize raft cluster.
 	go InitializeRaft(addressPort, otherNodes)
-		
+
 	// Note: the Serve call is blocking.
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
@@ -143,7 +137,7 @@ func StartServer(addressPort string, otherNodes []Node) (*grpc.Server) {
 
 // Returns initial server state.
 func GetInitialServer() Server {
-	result := Server {
+	result := Server{
 		serverState: Follower,
 		raftConfig: RaftConfig{
 			electionTimeoutMillis: PickElectionTimeOutMillis(),
@@ -162,12 +156,12 @@ func PickElectionTimeOutMillis() int {
 }
 
 func NodeToAddressString(input Node) string {
-	return input.Hostname + ":" +  input.Port
+	return input.Hostname + ":" + input.Port
 }
 
 // Connects to the other Raft nodes and returns array of Raft Client connections.
-func ConnectToOtherNodes(otherNodes []Node) ([]pb.RaftClient) {
-	
+func ConnectToOtherNodes(otherNodes []Node) []pb.RaftClient {
+
 	result := make([]pb.RaftClient, 0)
 	for _, node := range otherNodes {
 		serverAddress := NodeToAddressString(node)
