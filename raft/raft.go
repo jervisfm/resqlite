@@ -56,6 +56,15 @@ type RpcEvent struct {
 	
 }
 
+type RaftRequestVoteRpcEvent struct {
+	request pb.RequestVoteRequest
+	responseChan chan<- pb.RequestVoteResponse
+}
+
+type RaftAppendEntriesRpcEvent struct {
+	request pb.AppendEntriesRequest
+	responseChan chan<- pb.AppendEntriesResponse
+}
 
 // Contains all the inmemory state needed by the Raft algorithm
 type RaftState struct {
