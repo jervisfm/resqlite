@@ -254,10 +254,22 @@ func InitializeRaft(addressPort string, otherNodes []Node) {
 	StartServerLoop()
 }
 
+// Returns duration of time in milliseconds since the last successful heartbeat.
+func TimeSinceLastHeartBeatMillis() int64 {
+	diffMs :=  UnixMillis() - raftServer.lastHeartbeatTimeMillis
+	if (diffMs < 0) {
+		diffMs = 0
+	}
+	return diffMs
+
+}
+
 // Instructions that followers would be processing.
 func FollowerLoop() {
 
 	// TOOD(jmuindi): implement.
+	// Check if election timeout expired.
+
 }
 
 // Instructions that candidate would be processing.
