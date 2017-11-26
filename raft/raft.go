@@ -214,16 +214,16 @@ func LeaderLoop() {
 // Overall loop for the server.
 func StartServerLoop() {
 
-	if (raftServer.serverState == Leader) {
-		LeaderLoop()
-	} else if (raftServer.serverState == Follower) {
-		FollowerLoop()
-	} else if (raftServer.serverState == Candidate) {
-		CandidateLoop()
-	} else {
-		log.Fatalf("Unexpected / unknown server state: %v", raftServer.serverState)
+	while true {
+		if (raftServer.serverState == Leader) {
+			LeaderLoop()
+		} else if (raftServer.serverState == Follower) {
+			FollowerLoop()
+		} else if (raftServer.serverState == Candidate) {
+			CandidateLoop()
+		} else {
+			log.Fatalf("Unexpected / unknown server state: %v", raftServer.serverState)
+		}
 	}
-
-
 }
 
