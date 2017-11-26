@@ -43,7 +43,7 @@ type Server struct {
 	otherNodes []pb.RaftClient
 
 	// Queue of event messages to be processed.
-	
+	events chan Event
 }
 
 // Overall type for the messages processed by the event-loop.
