@@ -14,7 +14,7 @@ import (
 	"time"
 	//"math/bits"
 	"github.com/jervisfm/resqlite/util"
-	"go/build"
+	
 	"google.golang.org/grpc/codes"
 )
 
@@ -398,7 +398,7 @@ func handleRequestVoteRpc(event *RaftRequestVoteRpcEvent) {
 		// as receivers (Section 5.2; 5.4)
 		result.VoteGranted = true
 	}
-	result.ResponseStatus = 0
+	result.ResponseStatus = uint32(codes.OK)
 	event.responseChan<- result
 }
 
