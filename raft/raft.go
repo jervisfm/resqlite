@@ -545,6 +545,19 @@ func CandidateLoop() {
 	VoteForSelf()
 	RequestVotesFromOtherNodes()
 
+	if HaveEnoughVotes() {
+		ChangeToLeaderStatus()
+		return
+	}
+
+
+
+
+}
+
+// Converts the node to a leader status from a candidate
+func ChangeToLeaderStatus() {
+	raftServer.serverState = Leader
 
 }
 
