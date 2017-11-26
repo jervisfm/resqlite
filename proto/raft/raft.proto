@@ -47,13 +47,13 @@ message LogEntry {
 
 message AppendEntriesResponse {
   // RPC response code status. See https://godoc.org/google.golang.org/grpc/codes
-  int64 responseStatus = 3;
+  int64 responseStatus = 1;
 
   // Current term for leader to update itself.
-  int64 term = 1;
+  int64 term = 2;
 
   // True if follower contained entry matching prevLogIndex and prevLogTerm
-  bool success = 2;
+  bool success = 3;
 }
 
 
@@ -75,11 +75,11 @@ message RequestVoteRequest {
 
 message RequestVoteResponse {
   // RPC response code status. See https://godoc.org/google.golang.org/grpc/codes
-  int64 responseStatus = 3;
+  int64 responseStatus = 1;
 
   // Current term for candidate to update themselves.
-  int64 term = 1;
+  int64 term = 2;
 
   // If true, indicates that the node has voted for the candidate to be a leader.
-  bool voteGranted = 2;
+  bool voteGranted = 3;
 }
