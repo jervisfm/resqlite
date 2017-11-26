@@ -180,6 +180,7 @@ func StartServer(addressPort string, otherNodes []Node) *grpc.Server {
 	reflection.Register(s)
 
 	// Intialize raft cluster.
+	raftServer.otherNodes = ConnectToOtherNodes(otherNodes)
 	go InitializeRaft(addressPort, otherNodes)
 
 	// Note: the Serve call is blocking.
@@ -242,7 +243,6 @@ func TestNodeConnections(nodeConns []pb.RaftClient) {
 
 // Initializes Raft on server startup.
 func InitializeRaft(addressPort string, otherNodes []Node) {
-	raftServer.otherNodes = ConnectToOtherNodes(otherNodes)
 	StartServerLoop()
 }
 
