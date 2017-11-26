@@ -46,6 +46,9 @@ message LogEntry {
 }
 
 message AppendEntriesResponse {
+  // RPC response code status. See https://godoc.org/google.golang.org/grpc/codes
+  int64 responseStatus = 3;
+
   // Current term for leader to update itself.
   int64 term = 1;
 
@@ -71,6 +74,9 @@ message RequestVoteRequest {
 }
 
 message RequestVoteResponse {
+  // RPC response code status. See https://godoc.org/google.golang.org/grpc/codes
+  int64 responseStatus = 3;
+
   // Current term for candidate to update themselves.
   int64 term = 1;
 
