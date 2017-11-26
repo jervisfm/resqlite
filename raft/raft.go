@@ -462,27 +462,6 @@ func GetOtherNodes() []pb.RaftClient {
 	return raftServer.otherNodes
 }
 
-// Instructions that candidate would be processing.
-func CandidateLoop() {
-	// TOOD(jmuindi): implement.
-
-	// High level notes overview:
-	// Start an election process
-	// - Increment current election term
-	// - Vote for yourself
-	// - Request votes in parallel from others nodes in cluster
-	//
-	// Remain a candidate until any of the following happens:
-	// i) You win election (got enough votes)
-	// ii) Hear from another leader
-	// iii) A period of time goes by with no winner.
-
-	IncrementElectionTerm()
-	VoteForSelf()
-	RequestVotesFromOtherNodes()
-
-
-}
 
 // Increments the number of received votes.
 func IncrementVoteCount() {
@@ -544,6 +523,28 @@ func RequestVoteFromNode(node pb.RaftClient) {
 		// TODO(jmuindi): Fix the race on incrementing the vote counter.
 		IncrementVoteCount()
 	}
+
+}
+
+// Instructions that candidate would be processing.
+func CandidateLoop() {
+	// TOOD(jmuindi): implement.
+
+	// High level notes overview:
+	// Start an election process
+	// - Increment current election term
+	// - Vote for yourself
+	// - Request votes in parallel from others nodes in cluster
+	//
+	// Remain a candidate until any of the following happens:
+	// i) You win election (got enough votes)
+	// ii) Hear from another leader
+	// iii) A period of time goes by with no winner.
+
+	IncrementElectionTerm()
+	VoteForSelf()
+	RequestVotesFromOtherNodes()
+
 
 }
 
