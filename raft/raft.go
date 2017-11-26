@@ -281,13 +281,26 @@ func IsElectionTimeoutElapsed() bool {
 func FollowerLoop() {
 
 	// TOOD(jmuindi): implement.
-	// Check if election timeout expired.
+
+	// - Check if election timeout expired.
+	// - If so, change to candidate status.
 
 }
 
 // Instructions that candidate would be processing.
 func CandidateLoop() {
 	// TOOD(jmuindi): implement.
+
+	// High level notes overview:
+	// Start an election process
+	// - Increment current election term.
+	// - Vote for yourself
+	// - Request votes in parallel from others nodes in cluster
+	//
+	// Remain a candidate until any of the following happens:
+	// i) You win election (got enough votes)
+	// ii) Hear from another leader
+	// iii) A period of time goes by with no winner.
 }
 
 // Instructions that leaders would be performing.
