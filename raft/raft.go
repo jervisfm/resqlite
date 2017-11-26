@@ -318,6 +318,13 @@ func VoteForSelf() {
 	raftServer.raftState.persistentState.votedFor = myId
 }
 
+
+// Votes for the given server node.
+func VoteForServer(serverToVoteFor Node) {
+	serverId := GetNodeId(serverToVoteFor)
+	raftServer.raftState.persistentState.votedFor = serverId
+}
+
 // Instructions that followers would be processing.
 func FollowerLoop() {
 
