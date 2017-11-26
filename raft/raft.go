@@ -298,9 +298,7 @@ func IncrementElectionTerm() {
 
 // Instructions that followers would be processing.
 func FollowerLoop() {
-
-	// TOOD(jmuindi): implement.
-
+	
 	// - Check if election timeout expired.
 	// - If so, change to candidate status only.
 	// Note(jmuindi):  The requirement to check that we have not already voted
