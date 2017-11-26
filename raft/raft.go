@@ -277,17 +277,39 @@ func IsElectionTimeoutElapsed() bool {
 	}
 }
 
+// Returns true if this node already voted for a node to be a leader.
+func AlreadyVoted() bool {
+	if raftServer.raftState.persistentState.votedFor != "" {
+		return true
+	} else {
+		return false
+	}
+}
+
+func ChangeToCandidateStatus() {
+	raftServer.serverState = Candidate
+}
+
+// Increments election term and also resets the voted for status.
+func IncrementElectionTerm() {
+	raftServer.raftState.persistentState.votedFor = ""
+	raftServer.raftState.persistentState.currentTerm++
+}
+
 // Instructions that followers would be processing.
 func FollowerLoop() {
 
 	// TOOD(jmuindi): implement.
 
 	// - Check if election timeout expired.
-	// - If so, change to candidate status only iff you have not yet voted for
-	// another node.
+	// - If so, change to candidate status only.
+	// Note(jmuindi):  The requirement to check that we have not already voted
+	// as specified on figure 2 is covered because when after becoming a candidate
+	// we vote for our self and the event loop code structure for rpcs processing
+	// guarantees we won't vote for anyone else.
 
 	if IsElectionTimeoutElapsed() {
-
+		ChangeToCandidateStatus()
 	}
 
 }
@@ -298,7 +320,7 @@ func CandidateLoop() {
 
 	// High level notes overview:
 	// Start an election process
-	// - Increment current election term.
+	// - Increment current election term
 	// - Vote for yourself
 	// - Request votes in parallel from others nodes in cluster
 	//
