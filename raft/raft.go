@@ -48,21 +48,27 @@ type Server struct {
 
 // Overall type for the messages processed by the event-loop.
 type Event struct {
-
+	// The RPC (Remote Procedure Call) to be handled.
+	rpc RpcEvent
 }
 
 // Type holder RPC events to be processed.
 type RpcEvent struct {
-	
+	requestVote RaftAppendEntriesRpcEvent
+	appendEntries RaftAppendEntriesRpcEvent
 }
 
+// Type for request vote rpc event.
 type RaftRequestVoteRpcEvent struct {
 	request pb.RequestVoteRequest
+	// Channel for event loop to communicate back response to client.
 	responseChan chan<- pb.RequestVoteResponse
 }
 
+// Type for append entries rpc event.
 type RaftAppendEntriesRpcEvent struct {
 	request pb.AppendEntriesRequest
+	// Channel for event loop to communicate back response to client.
 	responseChan chan<- pb.AppendEntriesResponse
 }
 
