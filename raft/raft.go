@@ -296,9 +296,13 @@ func IncrementElectionTerm() {
 	raftServer.raftState.persistentState.currentTerm++
 }
 
+func VoteForSelf() {
+	raftServer.raftState.persistentState.votedFor = ""
+}
+
 // Instructions that followers would be processing.
 func FollowerLoop() {
-	
+
 	// - Check if election timeout expired.
 	// - If so, change to candidate status only.
 	// Note(jmuindi):  The requirement to check that we have not already voted
@@ -333,6 +337,9 @@ func CandidateLoop() {
 	// i) You win election (got enough votes)
 	// ii) Hear from another leader
 	// iii) A period of time goes by with no winner.
+
+	IncrementElectionTerm()
+	VoteForSelf()
 }
 
 // Instructions that leaders would be performing.

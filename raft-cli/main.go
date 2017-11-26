@@ -12,7 +12,6 @@ import (
 	"github.com/jervisfm/resqlite/raft"
 	//"google.golang.org/grpc"
 	//"google.golang.org/grpc/reflection"
-	"github.com/jervisfm/resqlite/util"
 )
 
 // Flags
