@@ -28,6 +28,10 @@ func ParseFlags() {
 	port = GetLocalPort(nodes)
 }
 
+func GetLocalNode(nodes []raft.Node) raft.Node {
+	// The very first node is the local node (i.e. this server).
+	return nodes[0]
+}
 func GetLocalPort(nodes []raft.Node) string {
 	// The very first node is the local port value.
 	return ":" + nodes[0].Port
@@ -58,8 +62,9 @@ func ParseNodePortPairString(input string) raft.Node {
 func main() {
 	ParseFlags()
 	otherNodes := GetOtherNodes()
+	localNode := GetLocalNode(nodes)
 	log.Printf(" Starting Raft Server listening at: %v", port)
 	log.Printf("All Node addresses: %v", nodes)
 	log.Printf("Other Node addresses: %v", otherNodes)
-	raft.StartServer(port, otherNodes)
+	raft.StartServer(localNode, otherNodes)
 }

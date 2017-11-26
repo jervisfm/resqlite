@@ -43,6 +43,9 @@ type Server struct {
 	// RPC clients for interacting with other nodes in the raft cluster.
 	otherNodes []pb.RaftClient
 
+	// Address information for this raft server node.
+	localNode Node
+
 	// Queue of event messages to be processed.
 	events chan Event
 
@@ -170,13 +173,15 @@ func ConnectToServer(address string) pb.RaftClient {
 	return c
 }
 
-// Starts a Raft Server listening at the specified address port. (e.g. :50051).
+// Starts a Raft Server listening at the specified local node.
 // otherNodes contain contact information for other nodes in the cluster.
-func StartServer(addressPort string, otherNodes []Node) *grpc.Server {
+func StartServer(localNode Node, otherNodes []Node) *grpc.Server {
+	addressPort := ":" + localNode.Port
 	lis, err := net.Listen("tcp", addressPort)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+	util.Log(util.DebugLevel, "Created Raft server at: %v", lis.Addr().String())
 	s := grpc.NewServer()
 	raftServer = GetInitialServer()
 	log.Printf("Initial Server state: %v", raftServer)
@@ -184,8 +189,9 @@ func StartServer(addressPort string, otherNodes []Node) *grpc.Server {
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 
-	// Intialize raft cluster.
+	// Initialize raft cluster.
 	raftServer.otherNodes = ConnectToOtherNodes(otherNodes)
+	raftServer.localNode = localNode
 	go InitializeRaft(addressPort, otherNodes)
 
 	// Note: the Serve call is blocking.
