@@ -76,15 +76,16 @@ services. The Raft protocol does not care per-se what the contents of the replic
 The following is a proposed implementation structure for the project:
 
 * raft/raft.go: Implements main raft replication business logic as a library
-* raft/raft_node.go (server implementation binary that can a basic raft node)
-    - To test the raft implemnetation we can start from scractch and use a constant set of data to replicate.
+    - To keep logic simple, we would use an event-based approach for the main loop.
+* raft-cli/main.go (server implementation binary that can act as a basic raft node)
+    - To test the raft implementation we can start from scractch and use a constant set of data to replicate.
 
-* resqlite_server/resqlite.go (Library that leverages Raft to replicate sqlite statements and implement replicated sqlite service)
-* resqlite_server/main.go (server binary that nodes runs). This involves:
+* server/resqlite.go (Library that leverages Raft to replicate sqlite statements and implement replicated sqlite service)
+* server/main.go (server binary that nodes runs). This involves:
     - Replicate new entry to other nodes.
     - Add it locally on success and execute
     - Reply to client with result.
 
-* resqlite_client/resqlite.go (library)
-* resqlite_client/main.go (client binary) <- Perhaps this can be replicaed with polyglot (https://github.com/grpc-ecosystem/polyglot#server-reflection)
+* client/resqlite.go (library)
+* client/main.go (client binary) <- Perhaps this can be replicaed with polyglot (https://github.com/grpc-ecosystem/polyglot#server-reflection)
 
