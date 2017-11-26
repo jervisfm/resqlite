@@ -324,7 +324,7 @@ func ChangeToCandidateStatus() {
 	raftServer.serverState = Candidate
 }
 
-// Increments election term and also resets the voted for status.
+// Increments election term and also resets the relevant raft state.
 func IncrementElectionTerm() {
 	raftServer.raftState.persistentState.votedFor = ""
 	raftServer.raftState.persistentState.currentTerm++
