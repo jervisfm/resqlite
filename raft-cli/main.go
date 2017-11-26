@@ -59,7 +59,11 @@ func ParseNodePortPairString(input string) raft.Node {
 func main() {
 	ParseFlags()
 	otherNodes := GetOtherNodes()
-	util.Log(util.INFO, "hello")
+	util.Log(util.INFO, "helloInfo")
+	util.Log(util.WARN, "helloWARN")
+	util.Log(util.ERROR, "helloError")
+	util.Log(util.VERBOSE, "helloverbose")
+	util.Log(util.EXTRA_VERBOSE, "helloExtraVerbose")
 	log.Printf(" Starting Raft Server listening at: %v", port)
 	log.Printf("All Node addresses: %v", nodes)
 	log.Printf("Other Node addresses: %v", otherNodes)
