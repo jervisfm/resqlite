@@ -44,6 +44,10 @@ type Server struct {
 
 	// Queue of event messages to be processed.
 	events chan Event
+
+	// Unix time in millis for when last hearbeat received when in non-leader
+	// mode.
+	lastHeartbeatTimeMillis int64
 }
 
 // Overall type for the messages processed by the event-loop.
@@ -198,6 +202,7 @@ func GetInitialServer() Server {
 		raftConfig: RaftConfig{
 			electionTimeoutMillis: PickElectionTimeOutMillis(),
 		},
+		
 	}
 	return result
 }
