@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"math/rand"
 	"time"
-	"math/bits"
+	//"math/bits"
 )
 
 const (
@@ -41,7 +41,21 @@ type Server struct {
 
 	// RPC clients for interacting with other nodes in the raft cluster.
 	otherNodes []pb.RaftClient
+
+	// Queue of event messages to be processed.
+	
 }
+
+// Overall type for the messages processed by the event-loop.
+type Event struct {
+
+}
+
+// Type holder RPC events to be processed.
+type RpcEvent struct {
+	
+}
+
 
 // Contains all the inmemory state needed by the Raft algorithm
 type RaftState struct {
@@ -214,7 +228,7 @@ func LeaderLoop() {
 // Overall loop for the server.
 func StartServerLoop() {
 
-	while true {
+	for {
 		if (raftServer.serverState == Leader) {
 			LeaderLoop()
 		} else if (raftServer.serverState == Follower) {
@@ -228,7 +242,7 @@ func StartServerLoop() {
 }
 
 // Returns the current time since unix epoch in milliseconds.
-func UnixMillis() int {
+func UnixMillis() int64 {
 	now := time.Now()
 	unixNano := now.UnixNano()
 	unixMillis := unixNano / 1000000
