@@ -12,6 +12,7 @@ import (
 	"github.com/jervisfm/resqlite/raft"
 	//"google.golang.org/grpc"
 	//"google.golang.org/grpc/reflection"
+	"github.com/jervisfm/resqlite/util"
 )
 
 // Flags
@@ -58,6 +59,7 @@ func ParseNodePortPairString(input string) raft.Node {
 func main() {
 	ParseFlags()
 	otherNodes := GetOtherNodes()
+	util.Log(util.INFO, "hello")
 	log.Printf(" Starting Raft Server listening at: %v", port)
 	log.Printf("All Node addresses: %v", nodes)
 	log.Printf("Other Node addresses: %v", otherNodes)
