@@ -13,6 +13,8 @@ import (
 	"math/rand"
 	"time"
 	//"math/bits"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -112,10 +114,19 @@ func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest)
 
 // RequestVote implementation for raft.RaftServer
 func (s *Server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*pb.RequestVoteResponse, error) {
-	// TODO(jmuindi): Implement.
+	replyChan := make(chan pb.RequestVoteResponse)
+	event := Event{
+		rpc: RpcEvent{
+			requestVote:RaftRequestVoteRpcEvent{
+				request: *in,
+				responseChan: replyChan,
+			},
+		},
+	}
+	raftServer.events<- event
 
-
-	return &pb.RequestVoteResponse{}, nil
+	result := <-replyChan
+	return &result, nil
 }
 
 // Specification for a node
