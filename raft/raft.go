@@ -379,6 +379,10 @@ func RaftCurrentTerm() int64 {
 	return raftServer.raftState.persistentState.currentTerm
 }
 
+func SetReceivedHeartBeat() {
+	raftServer.receivedHeartbeat = true
+}
+
 // Instructions that followers would be processing.
 func FollowerLoop() {
 
@@ -445,6 +449,7 @@ func handleHeartBeatRpc(event *RaftAppendEntriesRpcEvent) {
 	// Main thing is to reset the election timeout.
 	result.ResponseStatus = uint32(codes.OK)
 	ResetElectionTimeOut()
+	SetReceivedHeartBeat()
 
 	result.Success = true
 	event.responseChan<- result
