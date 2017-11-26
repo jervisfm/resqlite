@@ -283,7 +283,8 @@ func FollowerLoop() {
 	// TOOD(jmuindi): implement.
 
 	// - Check if election timeout expired.
-	// - If so, change to candidate status.
+	// - If so, change to candidate status only iff you have not yet voted for
+	// another node.
 
 }
 
