@@ -202,6 +202,7 @@ func GetInitialServer() Server {
 		raftConfig: RaftConfig{
 			electionTimeoutMillis: PickElectionTimeOutMillis(),
 		},
+		events: make(chan Event),
 		
 	}
 	return result
