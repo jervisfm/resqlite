@@ -20,9 +20,9 @@ var port string
 
 func ParseFlags() {
 	nodesPtr := flag.String("nodes", "",
-		"A comma separated list of node IP:port addresses." +
-		" The first node is presumed to be this node and the port number" +
-		" is what used to start the local raft server.")
+		"A comma separated list of node IP:port addresses."+
+			" The first node is presumed to be this node and the port number"+
+			" is what used to start the local raft server.")
 	flag.Parse()
 	nodes = ParseNodes(*nodesPtr)
 	port = GetLocalPort(nodes)
