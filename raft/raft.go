@@ -14,7 +14,7 @@ import (
 	"time"
 	//"math/bits"
 	"github.com/jervisfm/resqlite/util"
-	
+
 	"google.golang.org/grpc/codes"
 )
 
@@ -402,9 +402,29 @@ func handleRequestVoteRpc(event *RaftRequestVoteRpcEvent) {
 	event.responseChan<- result
 }
 
+// Heartbeat sent by leader. Special case of Append Entries with no log entries.
+func handleHeartBeatRpc(event *RaftAppendEntriesRpcEvent) {
+	result := pb.AppendEntriesResponse{}
+	currentTerm := RaftCurrentTerm()
+	result.Term = currentTerm
+	// Main thing is to reset the election timeout.
+	result.ResponseStatus = uint32(codes.OK)
+	ResetElectionTimeOut()
+
+	result.Success = true
+	event.responseChan<- result
+}
+
 // Handles append entries rpc.
 func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
+	isHeartBeatRpc := len(event.request.Entries) == 0
+	if isHeartBeatRpc {
+		handleHeartBeatRpc(event)
+		return
+	}
+	// Otherwise process regular append entries rpc
 	// TODO(jmuindi): Implement
+
 }
 
 // Instructions that candidate would be processing.
