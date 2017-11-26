@@ -266,6 +266,17 @@ func TimeSinceLastHeartBeatMillis() int64 {
 	return diffMs
 }
 
+// Returns true if the election timeout has already passed for this node.
+func IsElectionTimeoutElapsed() bool {
+	timeoutMs := raftServer.raftConfig.electionTimeoutMillis
+	elapsedMs := TimeSinceLastHeartBeatMillis()
+	if (elapsedMs > timeoutMs) {
+		return true
+	} else {
+		return false
+	}
+}
+
 // Instructions that followers would be processing.
 func FollowerLoop() {
 
