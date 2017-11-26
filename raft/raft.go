@@ -339,6 +339,12 @@ func VoteForServer(serverToVoteFor Node) {
 	raftServer.raftState.persistentState.votedFor = serverId
 }
 
+// Returns the size of the raft cluster.
+func GetRaftClusterSize() int {
+	return len(raftServer.otherNodes) + 1
+}
+
+
 // Returns current raft term.
 func RaftCurrentTerm() int64 {
 	return raftServer.raftState.persistentState.currentTerm
