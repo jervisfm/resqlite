@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"time"
 	//"math/bits"
+	"github.com/jervisfm/resqlite/util"
 )
 
 const (
@@ -256,12 +257,13 @@ func InitializeRaft(addressPort string, otherNodes []Node) {
 
 // Returns duration of time in milliseconds since the last successful heartbeat.
 func TimeSinceLastHeartBeatMillis() int64 {
-	diffMs :=  UnixMillis() - raftServer.lastHeartbeatTimeMillis
+	now := UnixMillis()
+	diffMs :=  now - raftServer.lastHeartbeatTimeMillis
 	if (diffMs < 0) {
+		util.Log(util.WARN, "Negative time since last heartbeat. Assuming 0.")
 		diffMs = 0
 	}
 	return diffMs
-
 }
 
 // Instructions that followers would be processing.
