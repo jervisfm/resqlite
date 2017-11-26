@@ -37,6 +37,9 @@ type Server struct {
 	raftConfig RaftConfig
 
 	raftState RaftState
+
+	// RPC clients for interacting with other nodes in the raft cluster.
+	otherNodes []pb.RaftClient
 }
 
 // Contains all the inmemory state needed by the Raft algorithm
@@ -93,8 +96,8 @@ type Node struct {
 
 // Variables
 
-// Tracks connections to other raft nodes.
-var nodeConns []pb.RaftClient
+// Handle to the raft server.
+var raftServer Server
 
 // Connects to a Raft server listening at the given address and returns a client
 // to talk to this server.
@@ -118,7 +121,7 @@ func StartServer(addressPort string, otherNodes []Node) *grpc.Server {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	raftServer := GetInitialServer()
+	raftServer = GetInitialServer()
 	log.Printf("Initial Server state: %v", raftServer)
 	pb.RegisterRaftServer(s, &raftServer)
 	// Register reflection service on gRPC server.
@@ -172,7 +175,7 @@ func ConnectToOtherNodes(otherNodes []Node) []pb.RaftClient {
 	return result
 }
 
-func TestNodeConnections(noteConns []pb.RaftClient) {
+func TestNodeConnections(nodeConns []pb.RaftClient) {
 	// Try a test RPC call to other nodes.
 	log.Printf("Have client conns: %v", nodeConns)
 	for _, nodeConn := range nodeConns {
@@ -187,6 +190,6 @@ func TestNodeConnections(noteConns []pb.RaftClient) {
 
 // Intializes Raft on server startup.
 func InitializeRaft(addressPort string, otherNodes []Node) {
-	nodeConns = ConnectToOtherNodes(otherNodes)
-	TestNodeConnections(nodeConns)
+	raftServer.otherNodes = ConnectToOtherNodes(otherNodes)
+	TestNodeConnections(raftServer.otherNodes)
 }
