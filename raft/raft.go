@@ -501,6 +501,26 @@ func GetLastLogTerm() int64 {
 }
 
 
+// Requests a vote from the given node.
+func RequestVoteFromNode(node pb.RaftClient) {
+	voteRequest := pb.RequestVoteRequest{}
+	voteRequest.Term = RaftCurrentTerm()
+	voteRequest.CandidateId = GetLocalNodeId()
+	voteRequest.LastLogIndex = GetLastLogIndex()
+	voteRequest.LastLogTerm = GetLastLogTerm()
+
+	result, err := node.RequestVote(context.Background(), &voteRequest)
+	if err != nil {
+		util.Log(util.ERROR, "Error getting vote from node %v err: %v", node, err)
+		return
+	}
+	util.Log(util.VERBOSE, "Vote response: %v", *result)
+	if result.VoteGranted {
+		// TODO(jmuindi): Fix the race on incrementing the vote counter.
+		IncrementVoteCount()
+	}
+
+}
 
 // Instructions that leaders would be performing.
 func LeaderLoop() {
