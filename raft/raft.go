@@ -106,7 +106,7 @@ type RaftLeaderState struct {
 type RaftConfig struct {
 
 	// Amount of time to wait before starting an election.
-	electionTimeoutMillis int
+	electionTimeoutMillis int64
 }
 
 // AppendEntries implementation for pb.RaftServer
@@ -212,11 +212,11 @@ func GetInitialServer() Server {
 }
 
 // Picks a randomized time for the election timeout.
-func PickElectionTimeOutMillis() int {
-	baseTimeMs := 300
+func PickElectionTimeOutMillis() int64 {
+	baseTimeMs := int64(300)
 	// Go random number is deterministic by default so we re-seed to get randomized behavior we want.
 	rand.Seed(time.Now().Unix())
-	randomOffsetMs := rand.Intn(100)
+	randomOffsetMs := int64(rand.Intn(100))
 	return baseTimeMs + randomOffsetMs
 }
 
@@ -285,6 +285,10 @@ func FollowerLoop() {
 	// - Check if election timeout expired.
 	// - If so, change to candidate status only iff you have not yet voted for
 	// another node.
+
+	if IsElectionTimeoutElapsed() {
+
+	}
 
 }
 
