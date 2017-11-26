@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"math/rand"
 	"time"
+	"math/bits"
 )
 
 const (
@@ -188,8 +189,41 @@ func TestNodeConnections(nodeConns []pb.RaftClient) {
 
 }
 
-// Intializes Raft on server startup.
+// Initializes Raft on server startup.
 func InitializeRaft(addressPort string, otherNodes []Node) {
 	raftServer.otherNodes = ConnectToOtherNodes(otherNodes)
-	TestNodeConnections(raftServer.otherNodes)
+	StartServerLoop()
 }
+
+// Instructions that followers would be processing.
+func FollowerLoop() {
+
+	// TOOD(jmuindi): implement.
+}
+
+// Instructions that candidate would be processing.
+func CandidateLoop() {
+	// TOOD(jmuindi): implement.
+}
+
+// Instructions that leaders would be performing.
+func LeaderLoop() {
+	// TOOD(jmuindi): implement.
+}
+
+// Overall loop for the server.
+func StartServerLoop() {
+
+	if (raftServer.serverState == Leader) {
+		LeaderLoop()
+	} else if (raftServer.serverState == Follower) {
+		FollowerLoop()
+	} else if (raftServer.serverState == Candidate) {
+		CandidateLoop()
+	} else {
+		log.Fatalf("Unexpected / unknown server state: %v", raftServer.serverState)
+	}
+
+
+}
+
