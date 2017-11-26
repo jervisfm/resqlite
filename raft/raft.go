@@ -340,10 +340,33 @@ func VoteForServer(serverToVoteFor Node) {
 }
 
 // Returns the size of the raft cluster.
-func GetRaftClusterSize() int {
-	return len(raftServer.otherNodes) + 1
+func GetRaftClusterSize() int64 {
+	return int64(len(raftServer.otherNodes) + 1)
 }
 
+
+// Returns the number of votes needed to have a quorum in the cluster.
+func GetQuorumSize() int64 {
+	// Total := 2(N+1/2), where N is number of allowed failures.
+	// Need N+1 for a quorum.
+	// N: = (Total/2 - 0.5) = floor(Total/2)
+	numTotalNodes := GetRaftClusterSize()
+	quorumSize := (numTotalNodes / 2) + 1
+	return quorumSize
+}
+
+func GetVoteCount() int64 {
+	return raftServer.receivedVoteCount
+}
+
+// Returns true if this node has received sufficient votes to become a leader
+func HaveEnoughVotes() bool {
+	if GetVoteCount() >= GetQuorumSize() {
+		return true
+	} else {
+		return false
+	}
+}
 
 // Returns current raft term.
 func RaftCurrentTerm() int64 {
