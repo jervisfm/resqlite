@@ -358,7 +358,7 @@ func FollowerLoop() {
 		select {
 		case event := <-raftServer.events:
 			util.Log(util.VERBOSE, "Processing %v", event)
-			
+			handleRpcEvent(event)
 		default:
 			util.Log(util.VERBOSE, "No Events to process")
 		}
@@ -366,6 +366,27 @@ func FollowerLoop() {
 	}
 
 
+}
+
+func handleRpcEvent(event Event) {
+	if event.rpc.requestVote != nil {
+		handleRequestVoteRpc(event.rpc.requestVote)
+	} else if event.rpc.appendEntries != nil {
+		handleAppendEntriesRpc(event.rpc.appendEntries)
+	} else {
+		log.Fatalf("Unexpected rpc event: %v", event)
+	}
+}
+
+// Handles request vote rpc.
+func handleRequestVoteRpc(event *RaftRequestVoteRpcEvent) {
+
+	// TODO(jmuindi): Implement
+}
+
+// Handles append entries rpc.
+func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
+	// TODO(jmuindi): Implement
 }
 
 // Instructions that candidate would be processing.
