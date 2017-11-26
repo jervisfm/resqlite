@@ -308,9 +308,16 @@ func FollowerLoop() {
 	// we vote for our self and the event loop code structure for rpcs processing
 	// guarantees we won't vote for anyone else.
 
-	if IsElectionTimeoutElapsed() {
-		ChangeToCandidateStatus()
+	for {
+		if IsElectionTimeoutElapsed() {
+			ChangeToCandidateStatus()
+			return
+		}
+
+		// TODO(jmuindi): Process Any RPCs that we have.
+
 	}
+
 
 }
 
