@@ -228,6 +228,17 @@ func GetInitialServer() Server {
 	return result
 }
 
+// Returns a go channel that blocks for a randomized election timeout time.
+func RandomizedElectionTimeout() chan bool {
+	waitDone := make(chan bool)
+	timeoutMs := PickElectionTimeOutMillis()
+	go func() {
+		time.Sleep(time.Millisecond * time.Duration(timeoutMs))
+		waitDone<- true
+	}()
+	return waitDone
+}
+
 // Picks a randomized time for the election timeout.
 func PickElectionTimeOutMillis() int64 {
 	baseTimeMs := int64(300)
