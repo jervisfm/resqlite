@@ -721,6 +721,11 @@ func GetLeaderCommit() int64 {
 // Overall loop for the server.
 func StartServerLoop() {
 
+
+	// TODO(jmuindi): The sub-loops below are busy looping which can burn CPU. Try finding
+	// a way to make them more efficient. Ideas here include:
+	// - Make _everything_ event based even the timeouts (may be more work than worth it).
+	// - Add a polling frequency, e.g. wait 1ms
 	for {
 		if (raftServer.serverState == Leader) {
 			LeaderLoop()
