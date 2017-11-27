@@ -565,10 +565,11 @@ func RequestVotesFromOtherNodes() int64 {
 	waitGroup.Add(len(otherNodes))
 
 	for _, node := range otherNodes {
-		go func() {
+		// Pass a copy of node to avoid a race condition.
+		go func(node pb.RaftClient) {
 			defer waitGroup.Done()
 			RequestVoteFromNode(node)
-		}()
+		}(node)
 	}
 
 	waitGroup.Wait()
