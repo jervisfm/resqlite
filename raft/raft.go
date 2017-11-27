@@ -510,6 +510,10 @@ func GetLastLogTerm() int64 {
 	return 0
 }
 
+func SetRaftCurrentTerm(term int64) {
+	raftServer.raftState.persistentState.currentTerm = term
+
+}
 
 // Requests votes from all the other nodes to make us a leader. Returns number of
 // currently received votes
@@ -559,7 +563,9 @@ func RequestVoteFromNode(node pb.RaftClient) {
 	}
 	// Change to follower status if our term is stale.
 	if (result.Term > RaftCurrentTerm()) {
+		util.Log(util.INFO, "Changing to follower status because term stale")
 		ChangeToFollowerStatus()
+		SetRaftCurrentTerm(result.Term)
 	}
 
 }
@@ -665,6 +671,7 @@ func LeaderLoop() {
 	//   majority of nodes. i.e. append to local log, respond after entry applied to
 	//   state machine.
 	// - See Figure 2 from Raft paper for 2 other leader requirements.
+	
 	util.Log(util.INFO, "Starting leader loop")
 	ReinitVolatileLeaderState()
 
