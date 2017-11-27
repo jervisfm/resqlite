@@ -43,6 +43,9 @@ message AppendEntriesRequest {
 message LogEntry {
   // Data to be appended to the replicated log.
   string data = 1;
+
+  // The term when the log entry command was received by the leader.
+  int64 term = 2;
 }
 
 message AppendEntriesResponse {
