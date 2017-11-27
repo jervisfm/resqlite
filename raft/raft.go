@@ -243,9 +243,7 @@ func RandomizedElectionTimeout() chan bool {
 		util.Log(util.INFO, "Randomized election timeoutMs start: %v", timeoutMs )
 		time.Sleep(time.Millisecond * time.Duration(timeoutMs))
 		util.Log(util.INFO, "Randomized election timeoutMs DONE: %v", timeoutMs )
-
 		waitDone<- true
-		util.Log(util.INFO, "waitDone updated")
 
 	}()
 	return waitDone
@@ -619,17 +617,14 @@ func CandidateLoop() {
 				ChangeToFollowerStatus()
 				return
 			}
-			util.Log(util.INFO, "Start select ")
 			select {
 			case event := <-raftServer.events:
 				handleRpcEvent(event)
 			case <-timeoutDoneChan:
-				util.Log(util.INFO, "Timeout done case, trying break")
 				timeoutDone = true
 				break
 
 			}
-			util.Log(util.INFO, "END select ")
 		}
 	}
 }
