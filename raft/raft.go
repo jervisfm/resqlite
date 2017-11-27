@@ -17,6 +17,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -467,6 +468,7 @@ func handleRequestVoteRpc(event *RaftRequestVoteRpcEvent) {
 	} else {
 		// TODO(jmuindi): Only grant vote if candidate log at least uptodate
 		// as receivers (Section 5.2; 5.4)
+		util.Log(util.INFO,  "Grant vote to other server at term: %v", currentTerm)
 		result.VoteGranted = true
 	}
 	result.ResponseStatus = uint32(codes.OK)
@@ -517,7 +519,7 @@ func GetOtherNodes() []pb.RaftClient {
 
 // Increments the number of received votes.
 func IncrementVoteCount() {
-	raftServer.receivedVoteCount++
+	atomic.AddInt64(&raftServer.receivedVoteCount, 1)
 }
 
 // Returns the index of the last entry in the raft log. Index is 1-based.
@@ -591,7 +593,7 @@ func RequestVoteFromNode(node pb.RaftClient) {
 		util.Log(util.ERROR, "Error getting vote from node %v err: %v", node, err)
 		return
 	}
-	util.Log(util.VERBOSE, "Vote response: %v", *result)
+	util.Log(util.INFO, "Vote response: %v", *result)
 	if result.VoteGranted {
 		// TODO(jmuindi): Fix the race on incrementing the vote counter.
 		IncrementVoteCount()
