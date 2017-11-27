@@ -671,7 +671,7 @@ func LeaderLoop() {
 	//   majority of nodes. i.e. append to local log, respond after entry applied to
 	//   state machine.
 	// - See Figure 2 from Raft paper for 2 other leader requirements.
-	
+	// - Also change to follower status if term is stale in rpc request/response
 	util.Log(util.INFO, "Starting leader loop")
 	ReinitVolatileLeaderState()
 
