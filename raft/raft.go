@@ -534,8 +534,11 @@ func GetLastLogTerm() int64 {
 // Updates raft current term to a new one.
 func SetRaftCurrentTerm(term int64) {
 	currentTerm := RaftCurrentTerm()
-	if term <= currentTerm {
-		log.Fatalf("Trying to update to the equal or lesser term: %v current: %v", term, currentTerm)
+	if term < currentTerm {
+		log.Fatalf("Trying to update to the  lesser term: %v current: %v", term, currentTerm)
+	} else if term == currentTerm {
+		// Concurrent rpcs can lead to duplicated attempts to update terms.
+		return
 	}
 	raftServer.raftState.persistentState.currentTerm = term
 
@@ -722,6 +725,12 @@ func LeaderLoop() {
 			time.Sleep(time.Duration(GetHeartbeatIntervalMillis()) * time.Millisecond)
 		}
 	}()
+
+	for {
+		if GetServerState() != Leader {
+			return
+		}
+	}
 }
 
 // Send heart beat rpcs to followers in parallel and waits for them to all complete.
