@@ -561,37 +561,41 @@ func CandidateLoop() {
 	// i) You win election (got enough votes) -> become leader
 	// ii) Hear from another leader -> become follower
 	// iii) A period of time goes by with no winner.
-
-	IncrementElectionTerm()
-	VoteForSelf()
-	RequestVotesFromOtherNodes()
-
-	if HaveEnoughVotes() {
-		ChangeToLeaderStatus()
-		return
-	}
-
-	// If we don't have enough votes, it possible that:
-	// a) Another node became a leader
-	// b) Split votes, no node got majority.
-	//
-	// For both cases, wait out a little bit before starting another election.
-	// This gives time to see if we hear from another leader (processing heartbeats)
-	// and also reduces chance of continual split votes since each node has a random
-	// timeout.
-	timeoutDone := RandomizedElectionTimeout()
 	for {
-		if raftServer.receivedHeartbeat {
-			// We have another leader and should convert to follower status.
-			ChangeToFollowerStatus()
+		if raftServer.serverState != Candidate {
 			return
 		}
-		select {
-		case event := <-raftServer.events:
-			handleRpcEvent(event)
-		case <-timeoutDone:
-			break
+		IncrementElectionTerm()
+		VoteForSelf()
+		RequestVotesFromOtherNodes()
 
+		if HaveEnoughVotes() {
+			ChangeToLeaderStatus()
+			return
+		}
+
+		// If we don't have enough votes, it possible that:
+		// a) Another node became a leader
+		// b) Split votes, no node got majority.
+		//
+		// For both cases, wait out a little bit before starting another election.
+		// This gives time to see if we hear from another leader (processing heartbeats)
+		// and also reduces chance of continual split votes since each node has a random
+		// timeout.
+		timeoutDone := RandomizedElectionTimeout()
+		for {
+			if raftServer.receivedHeartbeat {
+				// We have another leader and should convert to follower status.
+				ChangeToFollowerStatus()
+				return
+			}
+			select {
+			case event := <-raftServer.events:
+				handleRpcEvent(event)
+			case <-timeoutDone:
+				break
+
+			}
 		}
 	}
 }
