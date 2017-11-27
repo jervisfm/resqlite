@@ -345,18 +345,22 @@ func ChangeToCandidateStatus() {
 	raftServer.serverState = Candidate
 }
 
+func ResetReceivedVoteCount() {
+	atomic.StoreInt64(&raftServer.receivedVoteCount, 0)
+}
+
 // Increments election term and also resets the relevant raft state.
 func IncrementElectionTerm() {
 	raftServer.raftState.persistentState.votedFor = ""
 	raftServer.raftState.persistentState.currentTerm++
-	raftServer.receivedVoteCount = 0
+	ResetReceivedVoteCount()
 	raftServer.receivedHeartbeat = false
 }
 
 func VoteForSelf() {
 	myId := GetLocalNodeId()
 	raftServer.raftState.persistentState.votedFor = myId
-	raftServer.receivedVoteCount++
+	IncrementVoteCount()
 }
 
 
@@ -383,7 +387,7 @@ func GetQuorumSize() int64 {
 }
 
 func GetVoteCount() int64 {
-	return raftServer.receivedVoteCount
+	return atomic.LoadInt64(&raftServer.receivedVoteCount)
 }
 
 // Returns true if this node has received sufficient votes to become a leader
@@ -547,7 +551,7 @@ func SetRaftCurrentTerm(term int64) {
 
 	// Since it's a new term reset who voted for and if heard heartbeat from leader as candidate.
 	raftServer.raftState.persistentState.votedFor = ""
-	raftServer.receivedVoteCount = 0
+	ResetReceivedVoteCount()
 	raftServer.receivedHeartbeat = false
 
 }
@@ -596,7 +600,6 @@ func RequestVoteFromNode(node pb.RaftClient) {
 	}
 	util.Log(util.INFO, "Vote response: %v", *result)
 	if result.VoteGranted {
-		// TODO(jmuindi): Fix the race on incrementing the vote counter.
 		IncrementVoteCount()
 	}
 	// Change to follower status if our term is stale.
