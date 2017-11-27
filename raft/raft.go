@@ -652,6 +652,11 @@ func CandidateLoop() {
 		timeoutDoneChan := RandomizedElectionTimeout()
 		timeoutDone := false
 		for {
+			// While processing RPCs below, we may convert from candidate status to follower
+			if raftServer.serverState != Candidate {
+				util.Log(util.INFO, "Stopping candidate loop. Exit from inner loop")
+				return
+			}
 			if timeoutDone {
 				break
 			}
