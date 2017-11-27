@@ -559,10 +559,20 @@ func CandidateLoop() {
 		ChangeToLeaderStatus()
 		return
 	}
+	if raftServer.receivedHeartbeat {
+		// We have another leader and should convert to follower status.
+		ChangeToFollowerStatus()
+		return
+	}
 
 
 
 
+}
+
+// Changes to Follower status.
+func ChangeToFollowerStatus() {
+	raftServer.serverState = Follower
 }
 
 // Converts the node to a leader status from a candidate
