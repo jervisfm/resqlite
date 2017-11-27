@@ -580,8 +580,10 @@ func CandidateLoop() {
 	util.Log(util.INFO, "Starting candidate loop")
 	for {
 		if raftServer.serverState != Candidate {
+			util.Log(util.INFO, "Stopping candidate loop")
 			return
 		}
+		util.Log(util.INFO, "Starting new election term")
 		IncrementElectionTerm()
 		VoteForSelf()
 		RequestVotesFromOtherNodes()
@@ -599,6 +601,7 @@ func CandidateLoop() {
 		// This gives time to see if we hear from another leader (processing heartbeats)
 		// and also reduces chance of continual split votes since each node has a random
 		// timeout.
+		util.Log(util.INFO, "Potential split votes/not enough votes. Performing Randomized wait.")
 		timeoutDone := RandomizedElectionTimeout()
 		for {
 			if raftServer.receivedHeartbeat {
