@@ -547,8 +547,8 @@ func CandidateLoop() {
 	// - Request votes in parallel from others nodes in cluster
 	//
 	// Remain a candidate until any of the following happens:
-	// i) You win election (got enough votes)
-	// ii) Hear from another leader
+	// i) You win election (got enough votes) -> become leader
+	// ii) Hear from another leader -> become follower
 	// iii) A period of time goes by with no winner.
 
 	IncrementElectionTerm()
@@ -560,13 +560,17 @@ func CandidateLoop() {
 		return
 	}
 
-	// TODO(jmuindi): Handle RPCs to see if we got any hearbeats.
+	// TODO(jmuindi): Handle RPCs to see if we got any heartbeats.
 
 	if raftServer.receivedHeartbeat {
 		// We have another leader and should convert to follower status.
 		ChangeToFollowerStatus()
 		return
 	}
+
+	// Getting here is the split votes case: we don't have another leader and
+	// we didn't win the election. Wait our randomized election timeout time before
+	// starting another election.
 
 
 
