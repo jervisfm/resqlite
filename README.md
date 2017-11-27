@@ -93,4 +93,15 @@ The following is a proposed implementation structure for the project:
 
 * Leader election
     - Yay, seems to be working now.
-    - Want to fix though burning CPU on follower loop.
+    - Want to fix though burning CPU on follower loop: Fixed
+    - Need to look a go routine leak. We die when running with -race detector. This happens to followers
+```
+2017-11-26 23:37:34.989 [INFO] Have 1 votes at end
+2017-11-26 23:37:34.989 [INFO] Potential split votes/not enough votes. Performing Randomized wait.
+2017-11-26 23:37:35.337 [INFO] Grant vote to other server at term: 24
+2017-11-26 23:37:35.337 [INFO] Stopping candidate loop. Exit from inner loop
+2017-11-26 23:37:35.337 [INFO] Starting  follower loop
+2017-11-26 23:37:41.814 [INFO] Grant vote to other server at term: 25
+race: limit on 8192 simultaneously alive goroutines is exceeded, dying
+exit status 66
+```
