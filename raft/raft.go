@@ -240,9 +240,8 @@ func RandomizedElectionTimeout() chan bool {
 	waitDone := make(chan bool)
 	timeoutMs := PickElectionTimeOutMillis()
 	go func() {
-		util.Log(util.INFO, "Randomized election timeoutMs start: %v", timeoutMs )
+		util.Log(util.INFO, "Randomized election timeoutMs: %v", timeoutMs )
 		time.Sleep(time.Millisecond * time.Duration(timeoutMs))
-		util.Log(util.INFO, "Randomized election timeoutMs DONE: %v", timeoutMs )
 		waitDone<- true
 
 	}()
@@ -586,8 +585,8 @@ func CandidateLoop() {
 			util.Log(util.INFO, "Stopping candidate loop")
 			return
 		}
-		util.Log(util.INFO, "Starting new election term")
 		IncrementElectionTerm()
+		util.Log(util.INFO, "Starting new election term: %v", RaftCurrentTerm())
 		VoteForSelf()
 		RequestVotesFromOtherNodes()
 
