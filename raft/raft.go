@@ -246,6 +246,18 @@ func GetTimeoutWaitChannel(timeoutMs int64) chan bool {
 	return waitDone
 }
 
+// Get amount of time remaining in millis before last heartbeat received is considered
+// to have expired and thus we no longer have a leader.
+func GetRemainingHeartbeatTimeMs() int64 {
+	timeoutMs := raftServer.raftConfig.electionTimeoutMillis
+	elapsedMs := TimeSinceLastHeartBeatMillis()
+	remainingMs := timeoutMs - elapsedMs
+	if (remainingMs < 0) {
+		remainingMs = 0
+	}
+	return remainingMs
+}
+
 
 // Returns a go channel that blocks for a randomized election timeout time.
 func RandomizedElectionTimeout() chan bool {
