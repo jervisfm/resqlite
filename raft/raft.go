@@ -571,21 +571,29 @@ func CandidateLoop() {
 		return
 	}
 
-	// TODO(jmuindi): Handle RPCs to see if we got any heartbeats.
+	// If we don't have enough votes, it possible that:
+	// a) Another node became a leader
+	// b) Split votes, no node got majority.
+	//
+	// For both cases, wait out a little bit before starting another election.
+	// This gives time to see if we hear from another leader (processing heartbeats)
+	// and also reduces chance of continual split votes since each node has a random
+	// timeout.
+	timeoutDone := RandomizedElectionTimeout()
+	for {
+		if raftServer.receivedHeartbeat {
+			// We have another leader and should convert to follower status.
+			ChangeToFollowerStatus()
+			return
+		}
+		select {
+		case event := <-raftServer.events:
+			handleRpcEvent(event)
+		case <-timeoutDone:
+			break
 
-	if raftServer.receivedHeartbeat {
-		// We have another leader and should convert to follower status.
-		ChangeToFollowerStatus()
-		return
+		}
 	}
-
-	// Getting here is the split votes case: we don't have another leader and
-	// we didn't win the election. Wait our randomized election timeout time before
-	// starting another election.
-
-
-
-
 }
 
 // Changes to Follower status.
