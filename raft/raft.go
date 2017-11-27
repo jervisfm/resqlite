@@ -619,6 +619,10 @@ func ReinitVolatileLeaderState() {
 }
 
 
+func GetServerState() ServerState {
+	return raftServer.serverState
+}
+
 // Instructions that leaders would be performing.
 func LeaderLoop() {
 	// TOOD(jmuindi): implement.
@@ -631,7 +635,77 @@ func LeaderLoop() {
 	//   state machine.
 	// - See Figure 2 from Raft paper for 2 other leader requirements.
 	ReinitVolatileLeaderState()
+
+	// Send heartbeats to followers in the background.
+	go func() {
+		for {
+			if GetServerState() != Leader {
+				return
+			}
+			SendHeartBeatsToFollowers()
+			// TODO(jmuindi): Make heartbeat interval a config parameter.
+			time.Sleep(time.Millisecond * 10)
+		}
+	}()
 }
+
+// Send heart beat rpcs to followers in parallel and waits for them to all complete.
+func SendHeartBeatsToFollowers() {
+	otherNodes := GetOtherNodes()
+
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(len(otherNodes))
+
+	for _,node := range otherNodes {
+		// Send RPCs in parallel
+		go func() {
+			defer waitGroup.Done()
+			SendHeartBeatRpc(node)
+		}()
+	}
+	waitGroup.Wait()
+}
+
+
+// Sends a heartbeat rpc to the given raft node.
+func SendHeartBeatRpc(node pb.RaftClient) {
+	request := pb.AppendEntriesRequest{}
+	request.Term = RaftCurrentTerm()
+	request.LeaderId = GetLocalNodeId()
+	request.LeaderCommit = GetLeaderCommit()
+	request.PrevLogIndex = GetLeaderPreviousLogIndex()
+	request.PrevLogTerm = GetLeaderPreviousLogTerm()
+	// Log entries are empty/nil for heartbeat rpcs.
+	request.Entries = nil
+
+	result, err := node.AppendEntries(context.Background(), &request)
+	if err != nil {
+		util.Log(util.ERROR, "Error sending hearbeat to node: %v Error: %v", node, err)
+		return
+	}
+	util.Log(util.EXTRA_VERBOSE, "Heartbeat RPC Response from node: %v Response: %v", node, *result)
+}
+
+// PrevLogTerm value  used in the appendentries rpc request.
+func GetLeaderPreviousLogTerm() int64 {
+	// TODO: implement
+	return 0
+}
+
+// PrevLogIndex value  used in the appendentries rpc request.
+func GetLeaderPreviousLogIndex() int64 {
+	// TODO: implement
+	return 0
+
+}
+
+// Leader commit value used in the appendentries rpc request.
+func GetLeaderCommit() int64 {
+	// TODO: implement
+	return 0
+
+}
+
 
 
 // Overall loop for the server.
