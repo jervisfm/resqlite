@@ -447,6 +447,14 @@ func handleRpcEvent(event Event) {
 func handleRequestVoteRpc(event *RaftRequestVoteRpcEvent) {
 	result := pb.RequestVoteResponse{}
 	currentTerm := RaftCurrentTerm()
+
+	theirTerm := event.request.Term
+	if theirTerm > currentTerm {
+		ChangeToFollowerStatus()
+		SetRaftCurrentTerm(theirTerm)
+		currentTerm = theirTerm
+	}
+
 	result.Term = currentTerm
 	if event.request.Term < currentTerm {
 		result.VoteGranted = false
@@ -477,6 +485,16 @@ func handleHeartBeatRpc(event *RaftAppendEntriesRpcEvent) {
 
 // Handles append entries rpc.
 func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
+
+	// Convert to follower status if term in rpc is newer than ours.
+	currentTerm := RaftCurrentTerm()
+	theirTerm := event.request.Term
+	if theirTerm > currentTerm {
+		ChangeToFollowerStatus()
+		SetRaftCurrentTerm(theirTerm)
+		currentTerm = theirTerm
+	}
+
 	isHeartBeatRpc := len(event.request.Entries) == 0
 	if isHeartBeatRpc {
 		handleHeartBeatRpc(event)
@@ -510,8 +528,18 @@ func GetLastLogTerm() int64 {
 	return 0
 }
 
+// Updates raft current term to a new one.
 func SetRaftCurrentTerm(term int64) {
+	currentTerm := RaftCurrentTerm()
+	if term <= currentTerm {
+		log.Fatalf("Trying to update to the equal or lesser term: %v current: %v", term, currentTerm)
+	}
 	raftServer.raftState.persistentState.currentTerm = term
+
+	// Since it's a new term reset who voted for and if heard heartbeat from leader as candidate.
+	raftServer.raftState.persistentState.votedFor = ""
+	raftServer.receivedVoteCount = 0
+	raftServer.receivedHeartbeat = false
 
 }
 
