@@ -653,7 +653,7 @@ func LeaderLoop() {
 	go func() {
 		for {
 			if GetServerState() != Leader {
-				
+				util.Log(util.INFO, "No longer leader. Stopping heartbeat rpcs")
 				return
 			}
 			SendHeartBeatsToFollowers()
