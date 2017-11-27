@@ -559,6 +559,9 @@ func CandidateLoop() {
 		ChangeToLeaderStatus()
 		return
 	}
+
+	// TODO(jmuindi): Handle RPCs to see if we got any hearbeats.
+
 	if raftServer.receivedHeartbeat {
 		// We have another leader and should convert to follower status.
 		ChangeToFollowerStatus()
