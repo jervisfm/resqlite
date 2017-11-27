@@ -413,6 +413,7 @@ func FollowerLoop() {
 	// we vote for our self and the event loop code structure for rpcs processing
 	// guarantees we won't vote for anyone else.
 	util.Log(util.INFO, "Starting  follower loop")
+	ResetElectionTimeOut()
 	for {
 		if GetServerState() != Follower {
 			return

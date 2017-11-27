@@ -92,4 +92,4 @@ The following is a proposed implementation structure for the project:
 ### Debugging Issues
 
 * Have current problem of getting raft leader elected and recognized.
-    - Current issue is followers too quickly become candidates again.
+    - 
