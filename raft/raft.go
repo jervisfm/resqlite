@@ -734,8 +734,14 @@ func LeaderLoop() {
 	}()
 
 	for {
+		// While processing RPC, we may learn we no longer a valid leader.
 		if GetServerState() != Leader {
+			util.Log(util.INFO, "Stopping leader loop")
 			return
+		}
+		select {
+		case event := <-raftServer.events:
+			handleRpcEvent(event)
 		}
 	}
 }
@@ -775,7 +781,7 @@ func SendHeartBeatRpc(node pb.RaftClient) {
 		util.Log(util.ERROR, "Error sending hearbeat to node: %v Error: %v", node, err)
 		return
 	}
-	util.Log(util.EXTRA_VERBOSE, "Heartbeat RPC Response from node: %v Response: %v", node, *result)
+	util.Log(util.INFO, "Heartbeat RPC Response from node: %v Response: %v", node, *result)
 }
 
 // PrevLogTerm value  used in the appendentries rpc request.
