@@ -547,6 +547,17 @@ func RequestVoteFromNode(node pb.RaftClient) {
 
 }
 
+// Changes to Follower status.
+func ChangeToFollowerStatus() {
+	raftServer.serverState = Follower
+}
+
+// Converts the node to a leader status from a candidate
+func ChangeToLeaderStatus() {
+	raftServer.serverState = Leader
+
+}
+
 // Instructions that candidate would be processing.
 func CandidateLoop() {
 	// TOOD(jmuindi): implement.
@@ -600,16 +611,13 @@ func CandidateLoop() {
 	}
 }
 
-// Changes to Follower status.
-func ChangeToFollowerStatus() {
-	raftServer.serverState = Follower
+
+// Reinitializes volatile leader state
+func ReinitVolatileLeaderState() {
+
+	// TODO(jmuindi): implement
 }
 
-// Converts the node to a leader status from a candidate
-func ChangeToLeaderStatus() {
-	raftServer.serverState = Leader
-
-}
 
 // Instructions that leaders would be performing.
 func LeaderLoop() {
@@ -622,7 +630,9 @@ func LeaderLoop() {
 	//   majority of nodes. i.e. append to local log, respond after entry applied to
 	//   state machine.
 	// - See Figure 2 from Raft paper for 2 other leader requirements.
+	ReinitVolatileLeaderState()
 }
+
 
 // Overall loop for the server.
 func StartServerLoop() {
