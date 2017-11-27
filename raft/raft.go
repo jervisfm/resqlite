@@ -537,6 +537,10 @@ func RequestVotesFromOtherNodes() int64 {
 
 // Requests a vote from the given node.
 func RequestVoteFromNode(node pb.RaftClient) {
+	if (GetServerState() != Candidate) {
+		return
+	}
+
 	voteRequest := pb.RequestVoteRequest{}
 	voteRequest.Term = RaftCurrentTerm()
 	voteRequest.CandidateId = GetLocalNodeId()
@@ -552,6 +556,10 @@ func RequestVoteFromNode(node pb.RaftClient) {
 	if result.VoteGranted {
 		// TODO(jmuindi): Fix the race on incrementing the vote counter.
 		IncrementVoteCount()
+	}
+	// Change to follower status if our term is stale.
+	if (result.Term > RaftCurrentTerm()) {
+		ChangeToFollowerStatus()
 	}
 
 }
