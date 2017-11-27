@@ -121,6 +121,11 @@ type RaftConfig struct {
 
 	// Amount of time to wait before starting an election.
 	electionTimeoutMillis int64
+
+	// Amount of time in between heartbeat RPCs that leader sends. This should be
+	// much less than electionTimeout to avoid risking starting new election due to slow
+	// heartbeat RPCs.
+	heartBeatIntervalMillis int64
 }
 
 // AppendEntries implementation for pb.RaftServer
