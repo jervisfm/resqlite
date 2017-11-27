@@ -89,3 +89,6 @@ The following is a proposed implementation structure for the project:
 * client/resqlite.go (library)
 * client/main.go (client binary) <- Perhaps this can be replicaed with polyglot (https://github.com/grpc-ecosystem/polyglot#server-reflection)
 
+### Debugging Issues
+
+* Have current problem of getting raft leader elected and recognized.
