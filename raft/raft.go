@@ -224,6 +224,8 @@ func GetInitialServer() Server {
 		serverState: Follower,
 		raftConfig: RaftConfig{
 			electionTimeoutMillis: PickElectionTimeOutMillis(),
+			// TODO(jmuindi): Consider making this a command line flag.
+			heartBeatIntervalMillis: 10,
 		},
 		events: make(chan Event),
 		// We initialize last heartbeat time at startup because all servers start out
@@ -628,6 +630,12 @@ func GetServerState() ServerState {
 	return raftServer.serverState
 }
 
+// Returns the configured interval at which leader sends heartbeat rpcs.
+func GetHeartbeatIntervalMillis() int64 {
+	return raftServer.raftConfig.heartBeatIntervalMillis
+
+}
+
 // Instructions that leaders would be performing.
 func LeaderLoop() {
 	// TOOD(jmuindi): implement.
@@ -645,11 +653,11 @@ func LeaderLoop() {
 	go func() {
 		for {
 			if GetServerState() != Leader {
+				
 				return
 			}
 			SendHeartBeatsToFollowers()
-			// TODO(jmuindi): Make heartbeat interval a config parameter.
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Duration(GetHeartbeatIntervalMillis()) * time.Millisecond)
 		}
 	}()
 }
