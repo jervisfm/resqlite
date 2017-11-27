@@ -662,6 +662,7 @@ func LeaderLoop() {
 
 // Send heart beat rpcs to followers in parallel and waits for them to all complete.
 func SendHeartBeatsToFollowers() {
+	util.Log(util.INFO, "Sending heartbeats to followers")
 	otherNodes := GetOtherNodes()
 
 	var waitGroup sync.WaitGroup
