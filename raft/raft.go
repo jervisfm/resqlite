@@ -600,6 +600,9 @@ func RequestVoteFromNode(node pb.RaftClient) {
 	if (GetServerState() != Candidate) {
 		return
 	}
+	
+	// TODO(jmuindi): Access to Raft State should be protected with a mutex
+	// because we make request vote rpcs in parallel.
 
 	voteRequest := pb.RequestVoteRequest{}
 	voteRequest.Term = RaftCurrentTerm()
@@ -821,7 +824,7 @@ func GetLeaderCommit() int64 {
 
 // Overall loop for the server.
 func StartServerLoop() {
-	
+
 	for {
 		if (raftServer.serverState == Leader) {
 			LeaderLoop()
