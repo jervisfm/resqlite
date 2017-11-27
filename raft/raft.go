@@ -240,6 +240,7 @@ func RandomizedElectionTimeout() chan bool {
 	waitDone := make(chan bool)
 	timeoutMs := PickElectionTimeOutMillis()
 	go func() {
+		util.Log(util.INFO, "Randomized election timeoutMs: %v", timeoutMs )
 		time.Sleep(time.Millisecond * time.Duration(timeoutMs))
 		waitDone<- true
 	}()
