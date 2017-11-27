@@ -645,6 +645,7 @@ func LeaderLoop() {
 	//   majority of nodes. i.e. append to local log, respond after entry applied to
 	//   state machine.
 	// - See Figure 2 from Raft paper for 2 other leader requirements.
+	util.Log(util.INFO, "Starting leader loop")
 	ReinitVolatileLeaderState()
 
 	// Send heartbeats to followers in the background.
