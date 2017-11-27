@@ -567,8 +567,6 @@ func ChangeToLeaderStatus() {
 
 // Instructions that candidate would be processing.
 func CandidateLoop() {
-	// TOOD(jmuindi): implement.
-
 	// High level notes overview:
 	// Start an election process
 	// - Increment current election term
@@ -718,7 +716,6 @@ func GetLeaderCommit() int64 {
 	return 0
 
 }
-
 
 
 // Overall loop for the server.
