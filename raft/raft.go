@@ -746,11 +746,11 @@ func SendHeartBeatsToFollowers() {
 	waitGroup.Add(len(otherNodes))
 
 	for _,node := range otherNodes {
-		// Send RPCs in parallel
-		go func() {
+		// Send RPCs in parallel. Pass copy of node to avoid race conditions.
+		go func(node pb.RaftClient) {
 			defer waitGroup.Done()
 			SendHeartBeatRpc(node)
-		}()
+		}(node)
 	}
 	waitGroup.Wait()
 }
