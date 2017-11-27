@@ -92,4 +92,51 @@ The following is a proposed implementation structure for the project:
 ### Debugging Issues
 
 * Have current problem of getting raft leader elected and recognized.
-    - 
+    - Current issue of having 2 candidates who stay in candidate status infinitely.
+
+Node2
+```
+2017-11-26 21:24:22.722 [INFO] Starting new election term: 632
+2017-11-26 21:24:22.722 [INFO] Have 1 votes at start
+2017-11-26 21:24:22.722 [INFO] Requesting votes from other nodes: [0xc42000e050 0xc42000e058]
+2017-11-26 21:24:22.722 [INFO] Have 1 votes at end
+2017-11-26 21:24:22.722 [INFO] Potential split votes/not enough votes. Performing Randomized wait.
+2017-11-26 21:24:22.722 [INFO] Randomized election timeoutMs: 314
+2017-11-26 21:24:23.036 [INFO] Starting new election term: 633
+```
+
+Node3
+```
+2017-11-26 21:24:21.983 [INFO] Starting new election term: 630
+2017-11-26 21:24:21.983 [INFO] Have 1 votes at start
+2017-11-26 21:24:21.983 [INFO] Requesting votes from other nodes: [0xc420094048 0xc420094050]
+2017-11-26 21:24:21.9832017-11-26 21:24:21.983 [ERROR]  [ERROR] Error getting vote from node &{0xc4200ad180} err: rpc error: code = Unavailable desc = all SubConns are in TransientFailure
+Error getting vote from node &{0xc4200ad180} err: rpc error: code = Unavailable desc = all SubConns are in TransientFailure
+2017-11-26 21:24:21.983 [INFO] Have 1 votes at end
+2017-11-26 21:24:21.983 [INFO] Potential split votes/not enough votes. Performing Randomized wait.
+2017-11-26 21:24:21.983 [INFO] Randomized election timeoutMs: 352
+2017-11-26 21:24:22.340 [INFO] Starting new election term: 631
+2017-11-26 21:24:22.340 [INFO] Have 1 votes at start
+2017-11-26 21:24:22.340 [INFO] Requesting votes from other nodes: [0xc420094048 0xc420094050]
+2017-11-26 21:24:22.340 [ERROR] 2017-11-26 21:24:22.340 [ERROR] Error getting vote from node &{0xc4200ad180} err: rpc error: code = Unavailable desc = all SubConns are in TransientFailure
+Error getting vote from node &{0xc4200ad180} err: rpc error: code = Unavailable desc = all SubConns are in TransientFailure
+2017-11-26 21:24:22.340 [INFO] Have 1 votes at end
+2017-11-26 21:24:22.341 [INFO] Potential split votes/not enough votes. Performing Randomized wait.
+2017-11-26 21:24:22.341 [INFO] Randomized election timeoutMs: 314
+2017-11-26 21:24:22.656 [INFO] Starting new election term: 632
+2017-11-26 21:24:22.656 [INFO] Have 1 votes at start
+2017-11-26 21:24:22.656 [INFO] Requesting votes from other nodes: [0xc420094048 0xc420094050]
+2017-11-26 21:24:22.657 [ERROR] 2017-11-26 21:24:22.657 [ERROR] Error getting vote from node &{0xc4200ad180} err: rpc error: code = Unavailable desc = all SubConns are in TransientFailure
+Error getting vote from node &{0xc4200ad180} err: rpc error: code = Unavailable desc = all SubConns are in TransientFailure
+2017-11-26 21:24:22.657 [INFO] Have 1 votes at end
+2017-11-26 21:24:22.657 [INFO] Potential split votes/not enough votes. Performing Randomized wait.
+2017-11-26 21:24:22.657 [INFO] Randomized election timeoutMs: 314
+2017-11-26 21:24:22.976 [INFO] Starting new election term: 633
+2017-11-26 21:24:22.976 [INFO] Have 1 votes at start
+2017-11-26 21:24:22.976 [INFO] Requesting votes from other nodes: [0xc420094048 0xc420094050]
+2017-11-26 21:24:22.976 [ERROR] 2017-11-26 21:24:22.976 [ERROR] Error getting vote from node &{0xc4200ad180} err: rpc error: code = Unavailable desc = all SubConns are in TransientFailure
+Error getting vote from node &{0xc4200ad180} err: rpc error: code = Unavailable desc = all SubConns are in TransientFailure
+2017-11-26 21:24:22.976 [INFO] Have 1 votes at end
+2017-11-26 21:24:22.976 [INFO] Potential split votes/not enough votes. Performing Randomized wait.
+2017-11-26 21:24:22.976 [INFO] Randomized election timeoutMs: 314
+```
