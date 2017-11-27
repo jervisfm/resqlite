@@ -410,7 +410,7 @@ func FollowerLoop() {
 	// as specified on figure 2 is covered because when after becoming a candidate
 	// we vote for our self and the event loop code structure for rpcs processing
 	// guarantees we won't vote for anyone else.
-
+	util.Log(util.INFO, "Starting  follower loop")
 	for {
 		if IsElectionTimeoutElapsed() {
 			ChangeToCandidateStatus()
@@ -577,6 +577,7 @@ func CandidateLoop() {
 	// i) You win election (got enough votes) -> become leader
 	// ii) Hear from another leader -> become follower
 	// iii) A period of time goes by with no winner.
+	util.Log(util.INFO, "Starting candidate loop")
 	for {
 		if raftServer.serverState != Candidate {
 			return
