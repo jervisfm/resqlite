@@ -240,9 +240,13 @@ func RandomizedElectionTimeout() chan bool {
 	waitDone := make(chan bool)
 	timeoutMs := PickElectionTimeOutMillis()
 	go func() {
-		util.Log(util.INFO, "Randomized election timeoutMs: %v", timeoutMs )
+		util.Log(util.INFO, "Randomized election timeoutMs start: %v", timeoutMs )
 		time.Sleep(time.Millisecond * time.Duration(timeoutMs))
+		util.Log(util.INFO, "Randomized election timeoutMs DONE: %v", timeoutMs )
+
 		waitDone<- true
+		util.Log(util.INFO, "waitDone updated")
+
 	}()
 	return waitDone
 }
@@ -603,20 +607,29 @@ func CandidateLoop() {
 		// and also reduces chance of continual split votes since each node has a random
 		// timeout.
 		util.Log(util.INFO, "Potential split votes/not enough votes. Performing Randomized wait.")
-		timeoutDone := RandomizedElectionTimeout()
+		timeoutDoneChan := RandomizedElectionTimeout()
+		timeoutDone := false
 		for {
+			if timeoutDone {
+				break
+			}
 			if raftServer.receivedHeartbeat {
 				// We have another leader and should convert to follower status.
+				util.Log(util.INFO, "Heard from another leader. Converting to follower status")
 				ChangeToFollowerStatus()
 				return
 			}
+			util.Log(util.INFO, "Start select ")
 			select {
 			case event := <-raftServer.events:
 				handleRpcEvent(event)
-			case <-timeoutDone:
+			case <-timeoutDoneChan:
+				util.Log(util.INFO, "Timeout done case, trying break")
+				timeoutDone = true
 				break
 
 			}
+			util.Log(util.INFO, "END select ")
 		}
 	}
 }
