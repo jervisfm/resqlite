@@ -414,6 +414,9 @@ func FollowerLoop() {
 	// guarantees we won't vote for anyone else.
 	util.Log(util.INFO, "Starting  follower loop")
 	for {
+		if GetServerState() != Follower {
+			return
+		}
 		if IsElectionTimeoutElapsed() {
 			ChangeToCandidateStatus()
 			return
