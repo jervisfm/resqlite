@@ -253,6 +253,7 @@ func GetTimeoutWaitChannel(timeoutMs int64) chan bool {
 func GetConfigElectionTimeoutMillis() int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
+
 	return raftServer.raftConfig.electionTimeoutMillis
 }
 
@@ -320,9 +321,15 @@ func GetNodeId(node Node) string {
 	return NodeToAddressString(node)
 }
 
+func GetLocalNode() Node {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	return raftServer.localNode
+}
+
 // Returns identifier for this server.
 func GetLocalNodeId() string {
-	return GetNodeId(raftServer.localNode)
+	return GetNodeId(GetLocalNode())
 }
 
 // Initializes Raft on server startup.
@@ -350,7 +357,7 @@ func TimeSinceLastHeartBeatMillis() int64 {
 
 // Returns true if the election timeout has already passed for this node.
 func IsElectionTimeoutElapsed() bool {
-	timeoutMs := raftServer.raftConfig.electionTimeoutMillis
+	timeoutMs := GetConfigElectionTimeoutMillis()
 	elapsedMs := TimeSinceLastHeartBeatMillis()
 	if (elapsedMs > timeoutMs) {
 		return true
@@ -362,11 +369,17 @@ func IsElectionTimeoutElapsed() bool {
 // Resets the election time out. This restarts amount of time that has to pass
 // before an election timeout occurs. Election timeouts lead to new elections.
 func ResetElectionTimeOut() {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	raftServer.lastHeartbeatTimeMillis = UnixMillis()
 }
 
 // Returns true if this node already voted for a node to be a leader.
 func AlreadyVoted() bool {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	if raftServer.raftState.persistentState.votedFor != "" {
 		return true
 	} else {
@@ -375,15 +388,29 @@ func AlreadyVoted() bool {
 }
 
 func ChangeToCandidateStatus() {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	raftServer.serverState = Candidate
 }
 
+func GetReceivedHeartbeat() bool {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return raftServer.receivedHeartbeat
+}
+
 func ResetReceivedVoteCount() {
+	// Using atomics -- so no need to lock.
 	atomic.StoreInt64(&raftServer.receivedVoteCount, 0)
 }
 
 // Increments election term and also resets the relevant raft state.
 func IncrementElectionTerm() {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	raftServer.raftState.persistentState.votedFor = ""
 	raftServer.raftState.persistentState.currentTerm++
 	ResetReceivedVoteCount()
@@ -391,6 +418,9 @@ func IncrementElectionTerm() {
 }
 
 func VoteForSelf() {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	myId := GetLocalNodeId()
 	raftServer.raftState.persistentState.votedFor = myId
 	IncrementVoteCount()
@@ -399,12 +429,17 @@ func VoteForSelf() {
 
 // Votes for the given server node.
 func VoteForServer(serverToVoteFor Node) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	serverId := GetNodeId(serverToVoteFor)
 	raftServer.raftState.persistentState.votedFor = serverId
 }
 
 // Returns the size of the raft cluster.
 func GetRaftClusterSize() int64 {
+	// No lock here because otherNote is unchanged after server init.
+
 	return int64(len(raftServer.otherNodes) + 1)
 }
 
@@ -434,10 +469,16 @@ func HaveEnoughVotes() bool {
 
 // Returns current raft term.
 func RaftCurrentTerm() int64 {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	return raftServer.raftState.persistentState.currentTerm
 }
 
 func SetReceivedHeartBeat() {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	raftServer.receivedHeartbeat = true
 }
 
@@ -578,6 +619,12 @@ func SetRaftCurrentTerm(term int64) {
 		// Concurrent rpcs can lead to duplicated attempts to update terms.
 		return
 	}
+
+	// Note: Be wary of calling functions that also take the lock as
+	// golang locks are not reentrant.
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	raftServer.raftState.persistentState.currentTerm = term
 
 	// Since it's a new term reset who voted for and if heard heartbeat from leader as candidate.
@@ -647,11 +694,17 @@ func RequestVoteFromNode(node pb.RaftClient) {
 
 // Changes to Follower status.
 func ChangeToFollowerStatus() {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	raftServer.serverState = Follower
 }
 
 // Converts the node to a leader status from a candidate
 func ChangeToLeaderStatus() {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
 	raftServer.serverState = Leader
 
 }
@@ -670,7 +723,7 @@ func CandidateLoop() {
 	// iii) A period of time goes by with no winner.
 	util.Log(util.INFO, "Starting candidate loop")
 	for {
-		if raftServer.serverState != Candidate {
+		if GetServerState() != Candidate {
 			util.Log(util.INFO, "Stopping candidate loop")
 			return
 		}
@@ -697,14 +750,14 @@ func CandidateLoop() {
 		timeoutDone := false
 		for {
 			// While processing RPCs below, we may convert from candidate status to follower
-			if raftServer.serverState != Candidate {
+			if GetServerState() != Candidate {
 				util.Log(util.INFO, "Stopping candidate loop. Exit from inner loop")
 				return
 			}
 			if timeoutDone {
 				break
 			}
-			if raftServer.receivedHeartbeat {
+			if GetReceivedHeartbeat() {
 				// We have another leader and should convert to follower status.
 				util.Log(util.INFO, "Heard from another leader. Converting to follower status")
 				ChangeToFollowerStatus()
@@ -843,14 +896,15 @@ func GetLeaderCommit() int64 {
 func StartServerLoop() {
 
 	for {
-		if (raftServer.serverState == Leader) {
+		serverState := GetServerState()
+		if (serverState == Leader) {
 			LeaderLoop()
-		} else if (raftServer.serverState == Follower) {
+		} else if (serverState == Follower) {
 			FollowerLoop()
-		} else if (raftServer.serverState == Candidate) {
+		} else if (serverState == Candidate) {
 			CandidateLoop()
 		} else {
-			log.Fatalf("Unexpected / unknown server state: %v", raftServer.serverState)
+			log.Fatalf("Unexpected / unknown server state: %v", serverState)
 		}
 	}
 }
