@@ -241,14 +241,9 @@ func GetInitialServer() Server {
 	return result
 }
 
-// Returns a go channel that blocks for a randomized election timeout time.
-func GetTimeoutWaitChannel(timeoutMs int64) chan bool {
-	waitDone := make(chan bool)
-	go func() {
-		time.Sleep(time.Millisecond * time.Duration(timeoutMs))
-		waitDone<- true
-	}()
-	return waitDone
+// Returns a go channel that blocks for specified amount of time.
+func GetTimeoutWaitChannel(timeoutMs int64) *time.Timer {
+	return time.NewTimer(time.Millisecond * time.Duration(timeoutMs))
 }
 
 
@@ -273,7 +268,7 @@ func GetRemainingHeartbeatTimeMs() int64 {
 
 
 // Returns a go channel that blocks for a randomized election timeout time.
-func RandomizedElectionTimeout() chan bool {
+func RandomizedElectionTimeout() *time.Timer {
 	timeoutMs := PickElectionTimeOutMillis()
 	return GetTimeoutWaitChannel(timeoutMs)
 }
@@ -502,16 +497,16 @@ func FollowerLoop() {
 		}
 
 		remainingHeartbeatTimeMs := GetRemainingHeartbeatTimeMs()
-		timeoutChan := GetTimeoutWaitChannel(remainingHeartbeatTimeMs)
+		timeoutTimer := GetTimeoutWaitChannel(remainingHeartbeatTimeMs)
 
 		// TODO(jmuindi): Process Any RPCs that we have.
 		select {
 		case event := <-raftServer.events:
 			util.Log(util.INFO, "Processing rpc #%v event: %v", rpcCount, event)
 			handleRpcEvent(event)
-			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+			// pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 			rpcCount++
-		case <-timeoutChan:
+		case <-timeoutTimer.C:
 			// Election timeout occured w/o heartbeat from leader.
 			ChangeToCandidateStatus()
 			return
@@ -751,7 +746,7 @@ func CandidateLoop() {
 		// and also reduces chance of continual split votes since each node has a random
 		// timeout.
 		util.Log(util.INFO, "Potential split votes/not enough votes. Performing Randomized wait.")
-		timeoutDoneChan := RandomizedElectionTimeout()
+		timeoutTimer := RandomizedElectionTimeout()
 		timeoutDone := false
 		for {
 			// While processing RPCs below, we may convert from candidate status to follower
@@ -771,7 +766,7 @@ func CandidateLoop() {
 			select {
 			case event := <-raftServer.events:
 				handleRpcEvent(event)
-			case <-timeoutDoneChan:
+			case <-timeoutTimer.C:
 				timeoutDone = true
 				break
 
