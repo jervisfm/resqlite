@@ -500,7 +500,7 @@ func FollowerLoop() {
 		// TODO(jmuindi): Process Any RPCs that we have.
 		select {
 		case event := <-raftServer.events:
-			util.Log(util.INFO, "Processing rpc #%v event: %v", rpcCount, event)
+			util.Log(util.VERBOSE, "Processing rpc #%v event: %v", rpcCount, event)
 			handleRpcEvent(event)
 			// pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 			rpcCount++
