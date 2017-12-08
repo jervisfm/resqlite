@@ -242,11 +242,28 @@ func GetInitialServer() Server {
 }
 
 // Returns a go channel that blocks for a randomized election timeout time.
+// You can write into the waitdone to signal that waiting go routine should abort.
 func GetTimeoutWaitChannel(timeoutMs int64) chan bool {
 	waitDone := make(chan bool)
 	go func() {
-		time.Sleep(time.Millisecond * time.Duration(timeoutMs))
-		waitDone<- true
+		startMs := UnixMillis()
+		for {
+			time.Sleep(time.Millisecond * time.Duration(1))  // sleep for 1 ms
+			elapsedMs := UnixMillis() - startMs
+
+			select {
+			case <-waitDone:
+				// We should let this wait go routine die.
+				return
+			default:  // Perform a non-blocking read.
+			}
+
+			if (elapsedMs > timeoutMs) {
+				waitDone <- true
+				return
+			}
+		}
+
 	}()
 	return waitDone
 }
