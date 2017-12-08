@@ -105,3 +105,17 @@ The following is a proposed implementation structure for the project:
 race: limit on 8192 simultaneously alive goroutines is exceeded, dying
 exit status 66
 ```
+
+After adding more logging, it seems that we're dying after handling 8000 RPCs:
+
+```
+2017-12-07 20:30:23.953 [INFO] Processing rpc #8092 event: {{<nil> 0xc421a74280}}
+2017-12-07 20:30:23.968 [INFO] Processing rpc #8093 event: {{<nil> 0xc421a4c6e0}}
+2017-12-07 20:30:23.983 [INFO] Processing rpc #8094 event: {{<nil> 0xc421a216d0}}
+2017-12-07 20:30:24.000 [INFO] Processing rpc #8095 event: {{<nil> 0xc421a744b0}}
+2017-12-07 20:30:24.016 [INFO] Processing rpc #8096 event: {{<nil> 0xc421a745a0}}
+2017-12-07 20:30:24.031 [INFO] Processing rpc #8097 event: {{<nil> 0xc421a726e0}}
+race: limit on 8192 simultaneously alive goroutines is exceeded, dying
+```
+
+This means that for some reason go routine processing RPC is staying around and not going away.
