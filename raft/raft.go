@@ -65,7 +65,7 @@ type Server struct {
 	// Counts number of nodes in cluster that have chosen this node to be a leader
 	receivedVoteCount int64
 
-	// Mutex to protect synchronize concurrent access to data structure
+	// Mutex to synchronize concurrent access to data structure
 	lock sync.Mutex
 }
 
@@ -662,9 +662,6 @@ func RequestVoteFromNode(node pb.RaftClient) {
 	if (GetServerState() != Candidate) {
 		return
 	}
-
-	// TODO(jmuindi): Access to Raft State should be protected with a mutex
-	// because we make request vote rpcs in parallel.
 
 	voteRequest := pb.RequestVoteRequest{}
 	voteRequest.Term = RaftCurrentTerm()
