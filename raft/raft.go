@@ -249,10 +249,17 @@ func GetTimeoutWaitChannel(timeoutMs int64) chan bool {
 	return waitDone
 }
 
+
+func GetConfigElectionTimeoutMillis() int64 {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	return raftServer.raftConfig.electionTimeoutMillis
+}
+
 // Get amount of time remaining in millis before last heartbeat received is considered
 // to have expired and thus we no longer have a leader.
 func GetRemainingHeartbeatTimeMs() int64 {
-	timeoutMs := raftServer.raftConfig.electionTimeoutMillis
+	timeoutMs := GetConfigElectionTimeoutMillis()
 	elapsedMs := TimeSinceLastHeartBeatMillis()
 	remainingMs := timeoutMs - elapsedMs
 	if (remainingMs < 0) {
@@ -323,10 +330,17 @@ func InitializeRaft(addressPort string, otherNodes []Node) {
 	StartServerLoop()
 }
 
+func GetLastHeartbeatTimeMillis() int64 {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return raftServer.lastHeartbeatTimeMillis
+}
+
 // Returns duration of time in milliseconds since the last successful heartbeat.
 func TimeSinceLastHeartBeatMillis() int64 {
 	now := UnixMillis()
-	diffMs :=  now - raftServer.lastHeartbeatTimeMillis
+	diffMs :=  now - GetLastHeartbeatTimeMillis()
 	if (diffMs < 0) {
 		util.Log(util.WARN, "Negative time since last heartbeat. Assuming 0.")
 		diffMs = 0
