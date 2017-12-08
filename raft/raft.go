@@ -504,7 +504,7 @@ func FollowerLoop() {
 		// TODO(jmuindi): Process Any RPCs that we have.
 		select {
 		case event := <-raftServer.events:
-			util.Log(util.VERBOSE, "Processing %v", event)
+			util.Log(util.INFO, "Processing %v", event)
 			handleRpcEvent(event)
 		case <-timeoutChan:
 			// Election timeout occured w/o heartbeat from leader.
