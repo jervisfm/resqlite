@@ -18,8 +18,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"sync"
 	"sync/atomic"
-	"os"
-	"runtime/pprof"
 )
 
 const (
