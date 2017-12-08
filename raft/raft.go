@@ -322,8 +322,8 @@ func GetNodeId(node Node) string {
 }
 
 func GetLocalNode() Node {
-	raftServer.lock.Lock()
-	defer raftServer.lock.Unlock()
+	// No lock on localNode as it's unchanged after server init.
+
 	return raftServer.localNode
 }
 
