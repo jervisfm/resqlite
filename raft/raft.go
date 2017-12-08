@@ -168,7 +168,7 @@ func (s *Server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*p
 
 // Specification for a node
 type Node struct {
-	// A hostanme of the node either in DNS or IP form e.g. localhost
+	// A hostname of the node either in DNS or IP form e.g. localhost
 	Hostname string
 	// A port number for the node. e.g. :50051
 	Port string
