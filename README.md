@@ -119,3 +119,15 @@ race: limit on 8192 simultaneously alive goroutines is exceeded, dying
 ```
 
 This means that for some reason go routine processing RPC is staying around and not going away.
+
+Okay, the leak looks to be coming from the timeout wait channel:
+
+```
+832 @ 0x105bedd 0x105bfbe 0x102ddfb 0x102db53 0x15a247d 0x108a721
+#       0x15a247c       github.com/jervisfm/resqlite/raft.GetTimeoutWaitChannel.func1+0x5c      /Users/jmuindi/code/personal/go/src/github.com/jervisfm/resqlite/raft/raft.go:249
+
+14 @ 0x105bedd 0x105bfbe 0x107b593 0x15a2460 0x108a721
+#       0x107b592       time.Sleep+0x132                                                        /usr/local/go/src/runtime/time.go:65
+#       0x15a245f       github.com/jervisfm/resqlite/raft.GetTimeoutWaitChannel.func1+0x3f      /Users/jmuindi/code/personal/go/src/github.com/jervisfm/resqlite/raft/raft.go:248
+
+```

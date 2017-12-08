@@ -18,6 +18,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"sync"
 	"sync/atomic"
+	"os"
+	"runtime/pprof"
 )
 
 const (
@@ -507,6 +509,7 @@ func FollowerLoop() {
 		case event := <-raftServer.events:
 			util.Log(util.INFO, "Processing rpc #%v event: %v", rpcCount, event)
 			handleRpcEvent(event)
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 			rpcCount++
 		case <-timeoutChan:
 			// Election timeout occured w/o heartbeat from leader.
