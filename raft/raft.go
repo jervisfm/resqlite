@@ -493,6 +493,7 @@ func FollowerLoop() {
 	// guarantees we won't vote for anyone else.
 	util.Log(util.INFO, "Starting  follower loop")
 	ResetElectionTimeOut()
+	rpcCount := 0
 	for {
 		if GetServerState() != Follower {
 			return
@@ -504,8 +505,9 @@ func FollowerLoop() {
 		// TODO(jmuindi): Process Any RPCs that we have.
 		select {
 		case event := <-raftServer.events:
-			util.Log(util.INFO, "Processing %v", event)
+			util.Log(util.INFO, "Processing rpc #%v event: %v", rpcCount, event)
 			handleRpcEvent(event)
+			rpcCount++
 		case <-timeoutChan:
 			// Election timeout occured w/o heartbeat from leader.
 			ChangeToCandidateStatus()
@@ -786,7 +788,7 @@ func ReinitVolatileLeaderState() {
 func GetServerState() ServerState {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
-	
+
 	return raftServer.serverState
 }
 
