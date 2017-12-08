@@ -784,6 +784,9 @@ func ReinitVolatileLeaderState() {
 
 
 func GetServerState() ServerState {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	
 	return raftServer.serverState
 }
 
