@@ -717,6 +717,9 @@ func handleHeartBeatRpc(event *RaftAppendEntriesRpcEvent) {
 	ResetElectionTimeOut()
 	SetReceivedHeartBeat()
 
+	// And update our leader id if necessary.
+	SetLeaderId(event.request.LeaderId)
+
 	result.Success = true
 	event.responseChan<- result
 }
