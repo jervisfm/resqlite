@@ -121,6 +121,11 @@ type RaftPersistentState struct {
 type RaftVolatileState struct {
 	commitIndex int64
 	lastApplied int64
+
+	// Custom fields
+
+	// Id for who we believe to be the current leader of the cluster.
+	leaderId string
 }
 
 type RaftLeaderState struct {
@@ -210,6 +215,28 @@ func SetReceivedHeartbeat(newVal bool) {
 
 func SetReceivedHeartbeatLocked(newVal bool) {
 	raftServer.receivedHeartbeat = newVal
+}
+
+// Raft Volatile State.
+func GetLeaderIdLocked() string {
+	return raftServer.raftState.volatileState.leaderId
+}
+
+func GetLeaderId() string {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return GetLeaderIdLocked()
+}
+
+func SetLeaderIdLocked(newVal string) {
+	raftServer.raftState.volatileState.leaderId = newVal
+}
+
+func SetLeaderId(newVal string) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	SetLeaderIdLocked(newVal)
 }
 
 
@@ -320,11 +347,6 @@ func StartServer(localNode Node, otherNodes []Node) *grpc.Server {
 	return s
 }
 
-// Returns Id for the node we believe to be the leader (one we voted for).
-func GetLeaderId() string {
-	return GetPersistentVotedFor()
-
-}
 // Returns true iff server is the leader for the cluster.
 func IsLeader() bool {
 	return GetServerState() == Leader
