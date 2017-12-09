@@ -132,6 +132,16 @@ type RaftConfig struct {
 	heartBeatIntervalMillis int64
 }
 
+// Raft Persistent State accessors / getters
+func GetPersistentVotedFor() string {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	return raftServer.raftState.persistentState.votedFor
+}
+
+
+
+
 // AppendEntries implementation for pb.RaftServer
 func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
 	replyChan := make(chan pb.AppendEntriesResponse)
@@ -372,10 +382,9 @@ func ResetElectionTimeOut() {
 
 // Returns true if this node already voted for a node to be a leader.
 func AlreadyVoted() bool {
-	raftServer.lock.Lock()
-	defer raftServer.lock.Unlock()
 
-	if raftServer.raftState.persistentState.votedFor != "" {
+
+	if GetPersistentVotedFor() != "" {
 		return true
 	} else {
 		return false
