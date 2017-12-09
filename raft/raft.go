@@ -695,13 +695,12 @@ func SetRaftCurrentTerm(term int64) {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
-	raftServer.raftState.persistentState.currentTerm = term
+	SetPersistentCurrentTermLocked(term)
 
 	// Since it's a new term reset who voted for and if heard heartbeat from leader as candidate.
-	raftServer.raftState.persistentState.votedFor = ""
+	SetPersistentVotedForLocked("")
 	ResetReceivedVoteCount()
-	raftServer.receivedHeartbeat = false
-
+	SetReceivedHeartbeatLocked(false)
 }
 
 // Requests votes from all the other nodes to make us a leader. Returns number of
