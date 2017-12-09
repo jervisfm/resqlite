@@ -708,9 +708,6 @@ func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
 		return
 	}
 
-	// TODO(jmuindi): Replicate the client command to majority of nodes
-	// and only then return success to the client.
-
 	if event.request.GetCommand() != "" {
 		handleClientMutateCommand(event)
 	} else if event.request.GetQuery() != "" {
