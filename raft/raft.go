@@ -200,13 +200,27 @@ func AddPersistentLogEntry(newValue pb.LogEntry) {
 }
 
 func AddPersistentLogEntryLocked(newValue pb.LogEntry) {
-	nextIndex := len(raftServer.raftState.persistentState.log) + 1
+	nextIndex := int64(len(raftServer.raftState.persistentState.log)) + 1
 	diskEntry := pb.DiskLogEntry{
-		LogEntry: newValue,
+		LogEntry: &newValue,
 		LogIndex: nextIndex,
 	}
 
 	raftServer.raftState.persistentState.log = append(raftServer.raftState.persistentState.log, diskEntry)
+}
+
+func DeletePersistentLogEntryInclusive(startDeleteLogIndex int64) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	DeletePersistentLogEntryInclusiveLocked(startDeleteLogIndex)
+}
+
+// Delete all log entries starting from the given log index.
+// Note: input log index is 1-based.
+func DeletePersistentLogEntryInclusiveLocked(startDeleteLogIndex int64) {
+
+	zeroBasedDeleteIndex := startDeleteLogIndex - 1
+	raftServer.raftState.persistentState.log = append(raftServer.raftState.persistentState.log[:zeroBasedDeleteIndex])
 }
 
 
