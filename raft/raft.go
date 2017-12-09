@@ -168,7 +168,6 @@ func GetPersistentCurrentTermLocked() int64 {
 	return raftServer.raftState.persistentState.currentTerm
 }
 
-
 func SetPersistentCurrentTerm(newValue int64) {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
@@ -192,6 +191,7 @@ func IncrementPersistentCurrentTermLocked() {
 	newVal := val + 1
 	SetPersistentCurrentTermLocked(newVal)
 }
+
 
 func SetReceivedHeartbeat(newVal bool) {
 	raftServer.lock.Lock()
@@ -489,7 +489,7 @@ func VoteForSelf() {
 	defer raftServer.lock.Unlock()
 
 	myId := GetLocalNodeId()
-	raftServer.raftState.persistentState.votedFor = myId
+	SetPersistentVotedForLocked(myId)
 	IncrementVoteCount()
 }
 
