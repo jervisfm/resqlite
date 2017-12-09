@@ -320,6 +320,11 @@ func StartServer(localNode Node, otherNodes []Node) *grpc.Server {
 	return s
 }
 
+// Returns Id for the node we believe to be the leader (one we voted for).
+func GetLeaderId() string {
+	return GetPersistentVotedFor()
+
+}
 // Returns true iff server is the leader for the cluster.
 func IsLeader() bool {
 	return GetServerState() == Leader
@@ -640,9 +645,16 @@ func handleRpcEvent(event Event) {
 func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
 	result := pb.ClientCommandResponse{}
 
-	// TODO(jmuindi): Do not process client request if we're not the primary
-	// leader.
-	result.ResponseStatus = uint32(codes.OK)
+	if !IsLeader() {
+		result.ResponseStatus = uint32(codes.FailedPrecondition)
+		result.NewLeaderId = GetLeaderId()
+		event.responseChan<- result
+		return
+	}
+
+	// TODO(jmuindi): Replicate the client command to majority of nodes
+	// and only then return success to the client.
+	result.ResponseStatus = uint32(codes.Aborted)
 	event.responseChan<- result
 }
 
