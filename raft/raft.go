@@ -500,7 +500,7 @@ func VoteForServer(serverToVoteFor Node) {
 	defer raftServer.lock.Unlock()
 
 	serverId := GetNodeId(serverToVoteFor)
-	raftServer.raftState.persistentState.votedFor = serverId
+	SetPersistentVotedForLocked(serverId)
 }
 
 // Returns the size of the raft cluster.
