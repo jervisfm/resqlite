@@ -614,9 +614,21 @@ func handleRpcEvent(event Event) {
 		handleRequestVoteRpc(event.rpc.requestVote)
 	} else if event.rpc.appendEntries != nil {
 		handleAppendEntriesRpc(event.rpc.appendEntries)
+	} else if event.rpc.clientCommand != nil {
+		handleClientCommandRpc(event.rpc.clientCommand)
 	} else {
 		log.Fatalf("Unexpected rpc event: %v", event)
 	}
+}
+
+// Handles client command request.
+func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
+	result := pb.ClientCommandResponse{}
+	
+	// TODO(jmuindi): Do not process client request if we're not the primary
+	// leader.
+	result.ResponseStatus = uint32(codes.OK)
+	event.responseChan<- result
 }
 
 // Handles request vote rpc.
