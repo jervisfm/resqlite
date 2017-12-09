@@ -710,6 +710,14 @@ func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
 
 	// TODO(jmuindi): Replicate the client command to majority of nodes
 	// and only then return success to the client.
+
+	// Section 5.3 We need to do the following
+	// - Append command to our log as a new entry
+	// - Issue AppendEntries RPC in parallel to each of the other other nodes
+	// - When Get majority successful responses, apply the new entry to our state
+	//   machine.
+	// Note: If some other followers slow, we apply append entries rpcs indefinitely.
+
 	result.ResponseStatus = uint32(codes.Aborted)
 	event.responseChan<- result
 }
