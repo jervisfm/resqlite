@@ -192,6 +192,24 @@ func SetPersistentCurrentTermLocked(newValue int64) {
 	raftServer.raftState.persistentState.currentTerm = newValue
 }
 
+func AddPersistentLogEntry(newValue pb.LogEntry) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	AddPersistentLogEntryLocked(newValue)
+}
+
+func AddPersistentLogEntryLocked(newValue pb.LogEntry) {
+	nextIndex := len(raftServer.raftState.persistentState.log) + 1
+	diskEntry := pb.DiskLogEntry{
+		LogEntry: newValue,
+		LogIndex: nextIndex,
+	}
+
+	raftServer.raftState.persistentState.log = append(raftServer.raftState.persistentState.log, diskEntry)
+}
+
+
 func IncrementPersistenCurrentTerm() {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
@@ -216,6 +234,7 @@ func SetReceivedHeartbeat(newVal bool) {
 func SetReceivedHeartbeatLocked(newVal bool) {
 	raftServer.receivedHeartbeat = newVal
 }
+
 
 // Raft Volatile State.
 func GetLeaderIdLocked() string {
