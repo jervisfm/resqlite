@@ -252,7 +252,10 @@ func (s *Server) ClientCommand(ctx context.Context, in *pb.ClientCommandRequest)
 	replyChan := make(chan pb.ClientCommandResponse)
 	event := Event{
 		rpc: RpcEvent{
-			// TODO(jmuindi): Fill rpc event.
+			clientCommand: &RaftClientCommandRpcEvent{
+				request: *in,
+				responseChan: replyChan,
+			},
 		},
     }
     raftServer.events<- event
