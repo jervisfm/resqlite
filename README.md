@@ -89,9 +89,24 @@ The following is a proposed implementation structure for the project:
 * client/resqlite.go (library)
 * client/main.go (client binary) <- Perhaps this can be replicaed with polyglot (https://github.com/grpc-ecosystem/polyglot#server-reflection)
 
+### Pending Work items:
+Main item left is implementing cluster replication. To get there we need to:
+
+* Add methods to accessing raft persistent state. 
+    - Have it backup to in memory state to start.
+    - Migrate it later to real durable storage later.
+* Add a method to raft service to receive client command
+* Implement sql service to leverage raft service for replication.
+
+Performance work:
+* Benchmark single node performance (w/o replication overhead)
+* Benchmark replicated cluster performance (3 nodes).
+
 ### Debugging Issues
 
 * Leader election
     - Yay, seems to be working now.
     - Want to fix though burning CPU on follower loop: Fixed
     - Need to look a go routine leak. We die when running with -race detector: FIXED
+
+
