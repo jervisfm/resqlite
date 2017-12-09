@@ -79,6 +79,7 @@ type Event struct {
 type RpcEvent struct {
 	requestVote* RaftRequestVoteRpcEvent
 	appendEntries* RaftAppendEntriesRpcEvent
+	clientCommand* RaftClientCommandRpcEvent
 }
 
 // Type for request vote rpc event.
@@ -93,6 +94,13 @@ type RaftAppendEntriesRpcEvent struct {
 	request pb.AppendEntriesRequest
 	// Channel for event loop to communicate back response to client.
 	responseChan chan<- pb.AppendEntriesResponse
+}
+
+// Type for client command rpc event.
+type RaftClientCommandRpcEvent struct {
+	request pb.ClientCommandRequest
+	// Channel for event loop to communicate back response to client.
+	responseChan chan<- pb.ClientCommandResponse
 }
 
 // Contains all the inmemory state needed by the Raft algorithm
