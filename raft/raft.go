@@ -668,6 +668,7 @@ func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
 	result := pb.ClientCommandResponse{}
 
 	if !IsLeader() {
+		util.Log(util.WARN, "Rejecting client command because not leader")
 		result.ResponseStatus = uint32(codes.FailedPrecondition)
 		result.NewLeaderId = GetLeaderId()
 		event.responseChan<- result
