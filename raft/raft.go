@@ -239,6 +239,20 @@ func (s *Server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*p
 	return &result, nil
 }
 
+// Client Command implementation for raft.RaftServer
+func (s *Server) ClientCommand(ctx context.Context, in *pb.ClientCommandRequest) (*pb.ClientCommandResponse, error) {
+	replyChan := make(chan pb.ClientCommandResponse)
+	event := Event{
+		rpc: RpcEvent{
+			// TODO(jmuindi): Fill rpc event.
+		},
+    }
+    raftServer.events<- event
+
+    result := <-replyChan
+    return &result, nil
+}
+
 // Specification for a node
 type Node struct {
 	// A hostname of the node either in DNS or IP form e.g. localhost
