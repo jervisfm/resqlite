@@ -757,8 +757,40 @@ func ApplyCommandToStateMachine(event *RaftClientCommandRpcEvent) {
 // true on success.
 func IssueAppendEntriesRpcToMajorityNodes(event *RaftClientCommandRpcEvent) bool {
 
+	otherNodes := GetOtherNodes()
 
+	// Make RPCs in parallel but wait for all of them to complete.
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(len(otherNodes))
 
+	numOtherNodeSuccessRpcs := int32(0)
+
+	for _, node := range otherNodes {
+		// Pass a copy of node to avoid a race condition.
+		go func(node pb.RaftClient) {
+			defer waitGroup.Done()
+			success := IssueAppendEntriesRpcToNode(event.request, node)
+			if success {
+				atomic.AddInt32(&numOtherNodeSuccessRpcs, 1)
+			}
+		}(node)
+	}
+
+	waitGroup.Wait()
+
+	// +1 to include the copy at the primary as well.
+	numReplicatedData:= int64(numOtherNodeSuccessRpcs) + 1
+	if numReplicatedData >= GetQuorumSize() {
+		return true
+	} else {
+		return false
+	}
+}
+
+// Issues an append entries rpc to given raft client and returns true upon success
+func IssueAppendEntriesRpcToNode(request pb.ClientCommandRequest, client pb.RaftClient) bool {
+	// TODO: implement
+	return false
 }
 
 func appendCommandToLocalLog(event *RaftClientCommandRpcEvent) {
