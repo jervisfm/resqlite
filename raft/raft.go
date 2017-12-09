@@ -132,14 +132,77 @@ type RaftConfig struct {
 	heartBeatIntervalMillis int64
 }
 
-// Raft Persistent State accessors / getters
+// Raft Persistent State accessors / getters / functions.
+// TODO(jmuindi): Make the persistent set* actually write to disk.
 func GetPersistentVotedFor() string {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
+	return GetPersistentVotedForLocked()
+}
+
+// Locked means caller already holds appropriate lock.
+func GetPersistentVotedForLocked() string {
 	return raftServer.raftState.persistentState.votedFor
 }
 
 
+func SetPersistentVotedFor(newValue string)  {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	SetPersistentVotedForLocked(newValue)
+}
+
+func SetPersistentVotedForLocked(newValue string)  {
+	raftServer.raftState.persistentState.votedFor = newValue
+}
+
+func GetPersistentCurrentTerm() int64 {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return GetPersistentCurrentTermLocked()
+}
+
+func GetPersistentCurrentTermLocked() int64 {
+	return raftServer.raftState.persistentState.currentTerm
+}
+
+
+func SetPersistentCurrentTerm(newValue int64) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	SetPersistentCurrentTermLocked(newValue)
+}
+
+func SetPersistentCurrentTermLocked(newValue int64) {
+	raftServer.raftState.persistentState.currentTerm = newValue
+}
+
+func IncrementPersistenCurrentTerm() {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	IncrementPersistentCurrentTermLocked()
+}
+
+func IncrementPersistentCurrentTermLocked() {
+	val := GetPersistentCurrentTermLocked()
+	newVal := val + 1
+	SetPersistentCurrentTermLocked(newVal)
+}
+
+func SetReceivedHeartbeat(newVal bool) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	SetReceivedHeartbeatLocked(newVal)
+}
+
+func SetReceivedHeartbeatLocked(newVal bool) {
+	raftServer.receivedHeartbeat = newVal
+}
 
 
 // AppendEntries implementation for pb.RaftServer
@@ -383,7 +446,6 @@ func ResetElectionTimeOut() {
 // Returns true if this node already voted for a node to be a leader.
 func AlreadyVoted() bool {
 
-
 	if GetPersistentVotedFor() != "" {
 		return true
 	} else {
@@ -415,10 +477,11 @@ func IncrementElectionTerm() {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
-	raftServer.raftState.persistentState.votedFor = ""
-	raftServer.raftState.persistentState.currentTerm++
+
+	SetPersistentVotedForLocked("")
+	IncrementPersistentCurrentTermLocked()
 	ResetReceivedVoteCount()
-	raftServer.receivedHeartbeat = false
+	SetReceivedHeartbeatLocked(false)
 }
 
 func VoteForSelf() {
