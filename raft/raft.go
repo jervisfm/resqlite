@@ -115,7 +115,7 @@ type RaftState struct {
 type RaftPersistentState struct {
 	currentTerm int64
 	votedFor    string
-	log         []string
+	log         []pb.DiskLogEntry
 }
 
 type RaftVolatileState struct {
