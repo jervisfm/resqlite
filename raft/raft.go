@@ -698,9 +698,9 @@ func handleRpcEvent(event Event) {
 
 // Handles client command request.
 func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
-	result := pb.ClientCommandResponse{}
 
 	if !IsLeader() {
+		result := pb.ClientCommandResponse{}
 		util.Log(util.WARN, "Rejecting client command because not leader")
 		result.ResponseStatus = uint32(codes.FailedPrecondition)
 		result.NewLeaderId = GetLeaderId()
@@ -711,13 +711,33 @@ func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
 	// TODO(jmuindi): Replicate the client command to majority of nodes
 	// and only then return success to the client.
 
+	if event.request.GetCommand() != "" {
+		handleClientMutateCommand(event)
+	} else if event.request.GetQuery() != "" {
+		handleClientQueryCommand(event)
+	}
+
+}
+
+func handleClientQueryCommand(event *RaftClientCommandRpcEvent) {
+	sqlQuery := event.request.Query
+	util.Log(util.INFO, "Servicing SQL query: %v", sqlQuery)
+
+	result := pb.ClientCommandResponse{}
+
+	result.ResponseStatus = uint32(codes.OK)
+	event.responseChan <- result
+
+}
+
+func handleClientMutateCommand(event *RaftClientCommandRpcEvent) {
+	result := pb.ClientCommandResponse{}
 	// From Section 5.3 We need to do the following
 	// 1) Append command to our log as a new entry
 	// 2) Issue AppendEntries RPC in parallel to each of the other other nodes
 	// 3) When Get majority successful responses, apply the new entry to our state
 	//   machine, and reply to client.
 	// Note: If some other followers slow, we apply append entries rpcs indefinitely.
-
 	appendCommandToLocalLog(event)
 	replicationSuccess := IssueAppendEntriesRpcToMajorityNodes(event)
 	if replicationSuccess {
@@ -726,8 +746,6 @@ func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
 	} else {
 		result.ResponseStatus = uint32(codes.Aborted)
 	}
-
-	result.ResponseStatus = uint32(codes.Aborted)
 	event.responseChan <- result
 }
 
@@ -741,6 +759,8 @@ func ApplyCommandToStateMachine(event *RaftClientCommandRpcEvent) {
 // Issues append entries rpc to replicate command to majority of nodes and returns
 // true on success.
 func IssueAppendEntriesRpcToMajorityNodes(event *RaftClientCommandRpcEvent) bool {
+
+
 
 }
 
