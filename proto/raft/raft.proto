@@ -51,6 +51,16 @@ message LogEntry {
   int64 term = 2;
 }
 
+// Message contain the log entry that's actually to be saved to disk.
+message DiskLogEntry {
+  // Log entry with data to be saved.
+  LogEntry logEntry = 1;
+
+  // Optional.
+  // Index for this log entry item. This is a 1-based index.
+  int64 logIndex = 3;
+}
+
 message AppendEntriesResponse {
   // RPC response code status. See https://godoc.org/google.golang.org/grpc/codes
   uint32 responseStatus = 1;
