@@ -539,7 +539,7 @@ func RaftCurrentTerm() int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
-	return raftServer.raftState.persistentState.currentTerm
+	return GetPersistentCurrentTermLocked()
 }
 
 func SetReceivedHeartBeat() {
