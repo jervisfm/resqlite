@@ -13,6 +13,9 @@ service Raft {
 
   // Send a RequestVote RPC.
   rpc RequestVote (RequestVoteRequest) returns (RequestVoteResponse) {}
+
+  // RPC to receive and process client command requests.
+  rpc ClientCommand(ClientCommandRequest) returns (ClientCommandResponse) {}
 }
 
 // For the message definitions here, please refer to Figure 2 of the Raft paper.
@@ -85,4 +88,22 @@ message RequestVoteResponse {
 
   // If true, indicates that the node has voted for the candidate to be a leader.
   bool voteGranted = 3;
+}
+
+// Request received from raft clients to execute a command.
+message ClientCommandRequest {
+
+  // Command that client wants to execute. Typically, this should be a serialized
+  // form of some message that the replicated service will know how to pass.
+  // For ReSqlite: this should be the SqlCommandRequest proto.
+  string command = 1;
+}
+
+// Response returns to raft clients from executing a command.
+message ClientCommandResponse {
+
+  // Standard RPC response code status. See https://godoc.org/google.golang.org/grpc/codes
+  // Indicates whether client command was successfully executed.
+  // If Code.OK - that means client command was replicated/executed ona majority of the raft cluster.
+  uint32 responseStatus = 1;
 }
