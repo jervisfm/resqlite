@@ -106,4 +106,11 @@ message ClientCommandResponse {
   // Indicates whether client command was successfully executed.
   // If Code.OK - that means client command was replicated/executed ona majority of the raft cluster.
   uint32 responseStatus = 1;
+
+  // Optional.
+  // This can be present when the client makes a request to a raft node
+  // that is no longer a primary node. The string is an address of the primary leader
+  // that client should contact to execute their command. Format looks like
+  // <hostname/ip>:Port e.g 10.10.3.2:50231
+  string newLeaderId = 2;
 }
