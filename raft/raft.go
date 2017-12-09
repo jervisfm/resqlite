@@ -320,6 +320,21 @@ func StartServer(localNode Node, otherNodes []Node) *grpc.Server {
 	return s
 }
 
+// Returns true iff server is the leader for the cluster.
+func IsLeader() bool {
+	return GetServerState() == Leader
+}
+
+// Returns true iff server is a follower in the cluster
+func IsFollower() bool {
+	return GetServerState() == Follower
+}
+
+// Returns true iff server is a candidate
+func IsCandidate() bool {
+	return GetServerState() == Candidate
+}
+
 // Returns initial server state.
 func GetInitialServer() Server {
 	result := Server{
@@ -624,7 +639,7 @@ func handleRpcEvent(event Event) {
 // Handles client command request.
 func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
 	result := pb.ClientCommandResponse{}
-	
+
 	// TODO(jmuindi): Do not process client request if we're not the primary
 	// leader.
 	result.ResponseStatus = uint32(codes.OK)
