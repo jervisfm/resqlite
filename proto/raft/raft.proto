@@ -14,7 +14,7 @@ service Raft {
   // Send a RequestVote RPC.
   rpc RequestVote (RequestVoteRequest) returns (RequestVoteResponse) {}
 
-  // RPC to receive and process client command requests.
+  // RPC to receive and process mutating sql client command requests.
   rpc ClientCommand(ClientCommandRequest) returns (ClientCommandResponse) {}
 }
 
@@ -103,10 +103,14 @@ message RequestVoteResponse {
 // Request received from raft clients to execute a command.
 message ClientCommandRequest {
 
-  // Command that client wants to execute. Typically, this should be a serialized
-  // form of some message that the replicated service will know how to pass.
-  // For ReSqlite: this should be the SqlCommandRequest proto.
+  // Command that client wants to execute. For ReSqlite: this should be the
+  // mutating Sql command to execute.
+  // For example: INSERT INTO TABLE(1,2,3) ....;
   string command = 1;
+
+  // If set, this command is query against the sql database.
+  // This is a valid sql string like "Select X from TABLE;"
+  string query = 2;
 }
 
 // Response returns to raft clients from executing a command.
@@ -123,4 +127,7 @@ message ClientCommandResponse {
   // that client should contact to execute their command. Format looks like
   // <hostname/ip>:Port e.g 10.10.3.2:50231
   string newLeaderId = 2;
+
+  // Fetched data from executing the query. Only set for query requests.
+  string queryResponse = 3;
 }
