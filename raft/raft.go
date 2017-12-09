@@ -711,15 +711,46 @@ func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
 	// TODO(jmuindi): Replicate the client command to majority of nodes
 	// and only then return success to the client.
 
-	// Section 5.3 We need to do the following
-	// - Append command to our log as a new entry
-	// - Issue AppendEntries RPC in parallel to each of the other other nodes
-	// - When Get majority successful responses, apply the new entry to our state
-	//   machine.
+	// From Section 5.3 We need to do the following
+	// 1) Append command to our log as a new entry
+	// 2) Issue AppendEntries RPC in parallel to each of the other other nodes
+	// 3) When Get majority successful responses, apply the new entry to our state
+	//   machine, and reply to client.
 	// Note: If some other followers slow, we apply append entries rpcs indefinitely.
 
+	appendCommandToLocalLog(event)
+	replicationSuccess := IssueAppendEntriesRpcToMajorityNodes(event)
+	if replicationSuccess {
+		result.ResponseStatus = uint32(codes.OK)
+		ApplyCommandToStateMachine(event)
+	} else {
+		result.ResponseStatus = uint32(codes.Aborted)
+	}
+
 	result.ResponseStatus = uint32(codes.Aborted)
-	event.responseChan<- result
+	event.responseChan <- result
+}
+
+
+// Applies the command to the local state machine. For us this, this is to apply the
+// sql command.
+func ApplyCommandToStateMachine(event *RaftClientCommandRpcEvent) {
+	// TODO(jmuindi): implement
+}
+
+// Issues append entries rpc to replicate command to majority of nodes and returns
+// true on success.
+func IssueAppendEntriesRpcToMajorityNodes(event *RaftClientCommandRpcEvent) bool {
+
+}
+
+func appendCommandToLocalLog(event *RaftClientCommandRpcEvent) {
+	currentTerm := RaftCurrentTerm()
+	newLogEntry := pb.LogEntry{
+		Data: event.request.Command,
+		Term: currentTerm,
+	}
+	AddPersistentLogEntry(newLogEntry)
 }
 
 // Handles request vote rpc.
