@@ -19,6 +19,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"google.golang.org/genproto/googleapis/rpc/code"
+	"database/sql"
 )
 
 const (
@@ -65,6 +66,12 @@ type Server struct {
 
 	// Counts number of nodes in cluster that have chosen this node to be a leader
 	receivedVoteCount int64
+
+	// Database of Raft Log of operations.
+	raftLog sql.DB
+
+	// Database of replicated state machine with applied client commands.
+	sqlDB  sql.DB
 
 	// Mutex to synchronize concurrent access to data structure
 	lock sync.Mutex
@@ -757,6 +764,19 @@ func ApplyCommandToStateMachine(event *RaftClientCommandRpcEvent) {
 
 func ApplySqlCommand(sqlCommand string) {
 	// TODO(jmuindi): implement.
+}
+
+// sql database which is the state machine for this node.
+func GetSqliteReplicatedStateMachineOpenPath() string {
+	// Want this to point to in-memory database. We'll replay raft log entries
+	// to bring db upto speed.
+	const sqlOpenPath = "file::memory:?mode=memory&cache=shared"
+	return sqlOpenPath
+}
+
+// Returns database path to use for the raft log.
+func GetSqliteRaftLogPath() string {
+	return "./sqlite-raft-log" + GetLocalNodeId()
 }
 
 // Issues append entries rpc to replicate command to majority of nodes and returns
