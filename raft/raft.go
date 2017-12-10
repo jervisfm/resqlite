@@ -20,10 +20,10 @@ import (
 	"sync/atomic"
 
 	"database/sql"
-	_ "strings"
 
 	// Import for sqlite3 support.
 	_ "github.com/mattn/go-sqlite3"
+	"strings"
 )
 
 const (
@@ -791,8 +791,8 @@ func GetSqliteReplicatedStateMachineOpenPath() string {
 // Returns database path to use for the raft log.
 func GetSqliteRaftLogPath() string {
 	localId := GetLocalNodeId()
-	//localId = strings.Replace(localId, ":", "-", -1)
-	return "./sqlite-raft-log" + localId
+	localId = strings.Replace(localId, ":", "-", -1)
+	return "./sqlite-raft-log-" + localId
 }
 
 // Issues append entries rpc to replicate command to majority of nodes and returns
