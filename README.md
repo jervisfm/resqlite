@@ -122,3 +122,7 @@ Performance work:
 
 * Databases
     - File paths do not seem to be created properly.
+         - Further investigation reveleded that this is because db.Close() is not being called.
+           Thus, we need to all this to persist any changes that are final. Not efficient but we cant
+           open/close database handle for each operation. 
+
