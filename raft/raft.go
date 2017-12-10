@@ -579,6 +579,50 @@ func InitializeDatabases() {
 
 	 raftServer.sqlDb = replicatedStateMachineDb
 	 raftServer.raftLogDb = raftDbLog
+
+	 LoadPersistentStateIntoMemory()
+}
+
+// Loads the on disk persistent state into memory.
+func LoadPersistentStateIntoMemory() {
+	util.Log(util.INFO, "Before load. Raft Persistent State: %v ", raftServer.raftState.persistentState)
+	LoadPersistentLog()
+	LoadPersistentKeyValues()
+	util.Log(util.INFO, "After load. Raft Persistent State: %v ", raftServer.raftState.persistentState)
+}
+
+func LoadPersistentKeyValues() {
+
+}
+
+func LoadPersistentLog() {
+
+	rows, err := raftServer.raftLogDb.Query("SELECT log_index, log_entry FROM RaftLog ORDER BY log_index ASC;")
+	if err != nil {
+		log.Fatalf("Failed to load raft persistent state into memory. err: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var logIndex int64
+		var logEntryProtoText string
+		err = rows.Scan(&logIndex, &logEntryProtoText)
+		if err != nil {
+			log.Fatalf("Failed to read raft log row entry. err: %v ", err)
+		}
+		util.Log(util.INFO, "Restoring raft log to memory: %v, %v", logIndex, logEntryProtoText)
+
+		var parsedLogEntry pb.LogEntry
+		err := proto.UnmarshalText(logEntryProtoText, &parsedLogEntry)
+		if err != nil {
+			log.Fatalf("Error parsing log entry proto: %v err: %v", logEntryProtoText, err)
+		}
+		diskLogEntry := pb.DiskLogEntry{
+			LogIndex: logIndex,
+			LogEntry: &parsedLogEntry,
+		}
+
+		raftServer.raftState.persistentState.log = append(raftServer.raftState.persistentState.log, diskLogEntry)
+	}
 }
 
 
