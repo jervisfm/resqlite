@@ -71,6 +71,12 @@ type Server struct {
 	// Counts number of nodes in cluster that have chosen this node to be a leader
 	receivedVoteCount int64
 
+	// Database containing the persistent raft log
+	raftLogDb *sql.DB
+
+	// sqlite Database of the replicated state machine.
+	sqlDb * sql.DB
+
 	// Mutex to synchronize concurrent access to data structure
 	lock sync.Mutex
 }
@@ -511,6 +517,7 @@ func InitializeRaft(addressPort string, otherNodes []Node) {
 	InitializeDatabases()
 	StartServerLoop()
 }
+
 func InitializeDatabases() {
 	raftDbLog, err := sql.Open("sqlite3" , GetSqliteRaftLogPath())
 	if err != nil {
@@ -549,6 +556,8 @@ func InitializeDatabases() {
      	log.Fatalf("Failed to create raft key value table. sql: %v, err: %v", raftKeyValueCreateStatement, err)
 	 }
 
+	 raftServer.sqlDb = replicatedStateMachineDb
+	 raftServer.raftLogDb = raftDbLog
 }
 
 
