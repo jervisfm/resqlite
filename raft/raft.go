@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"sync"
 	"sync/atomic"
+	"google.golang.org/genproto/googleapis/rpc/code"
 )
 
 const (
@@ -789,9 +790,51 @@ func IssueAppendEntriesRpcToMajorityNodes(event *RaftClientCommandRpcEvent) bool
 
 // Issues an append entries rpc to given raft client and returns true upon success
 func IssueAppendEntriesRpcToNode(request pb.ClientCommandRequest, client pb.RaftClient) bool {
-	// TODO: implement
-	return false
+	if !IsLeader() {
+		return false
+	}
+	currentTerm := RaftCurrentTerm()
+	appendEntryRequest := pb.AppendEntriesRequest{}
+	appendEntryRequest.Term = currentTerm
+	appendEntryRequest.LeaderId = GetLocalNodeId()
+	appendEntryRequest.PrevLogIndex = GetLeaderPreviousLogIndex()
+	appendEntryRequest.PrevLogTerm = GetLeaderPreviousLogTerm()
+	appendEntryRequest.LeaderCommit = GetLeaderCommit()
+
+	newEntry := pb.LogEntry{}
+	newEntry.Term = currentTerm
+	newEntry.Data = request.Command
+
+	appendEntryRequest.Entries = append(appendEntryRequest.Entries, &newEntry)
+
+	result, err := client.AppendEntries(context.Background(), &appendEntryRequest)
+	if err != nil {
+		util.Log(util.ERROR, "Error issuing append entry to node: %v err:%v", client, err)
+		return false
+	}
+	if result.ResponseStatus != uint32(codes.OK) {
+		util.Log(util.ERROR, "Error issuing append entry to node: %v response code:%v", client, result.ResponseStatus)
+		return false
+	}
+	util.Log(util.INFO, "AppendEntry Response from node: %v response: %v", client, *result)
+
+	if result.Term > RaftCurrentTerm() {
+		ChangeToFollowerIfTermStale(result.Term)
+		return false
+	} else {
+		return true
+	}
 }
+
+
+func ChangeToFollowerIfTermStale(theirTerm int64) {
+	if theirTerm > RaftCurrentTerm() {
+		util.Log(util.INFO, "Changing to follower status because term stale")
+		ChangeToFollowerStatus()
+		SetRaftCurrentTerm(theirTerm)
+	}
+}
+
 
 func appendCommandToLocalLog(event *RaftClientCommandRpcEvent) {
 	currentTerm := RaftCurrentTerm()
