@@ -999,6 +999,10 @@ func RequestVoteFromNode(node pb.RaftClient) {
 		util.Log(util.ERROR, "Error getting vote from node %v err: %v", node, err)
 		return
 	}
+	if result.ResponseStatus != uint32(codes.OK) {
+		util.Log(util.ERROR, "Error with vote rpc entry to node: %v response code:%v", node, result.ResponseStatus)
+		return
+	}
 	util.Log(util.INFO, "Vote response: %v", *result)
 	if result.VoteGranted {
 		IncrementVoteCount()
