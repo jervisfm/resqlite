@@ -24,6 +24,7 @@ import (
 	// Import for sqlite3 support.
 	_ "github.com/mattn/go-sqlite3"
 	"strings"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -216,6 +217,26 @@ func AddPersistentLogEntryLocked(newValue pb.LogEntry) {
 	diskEntry := pb.DiskLogEntry{
 		LogEntry: &newValue,
 		LogIndex: nextIndex,
+	}
+
+	// Update database (stable storage first).
+	tx, err := raftServer.raftLogDb.Begin()
+	if err != nil {
+		log.Fatalf("Failed to begin db tx. Err: %v", err)
+	}
+	statement, err := tx.Prepare("INSERT INTO RaftLog(log_index, log_entry) values(?, ?)")
+	if err != nil {
+		log.Fatalf("Failed to prepare sql statement to add log entry. err: %v", err)
+	}
+	defer statement.Close()
+	protoText := proto.MarshalTextString(&newValue)
+	_, err = statement.Exec(nextIndex, protoText)
+	if err != nil {
+		log.Fatalf("Failed to execute sql statement to add log entry. err: %v", err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalf("Failed to commit tx to add log entry. err: %v", err)
 	}
 
 	raftServer.raftState.persistentState.log = append(raftServer.raftState.persistentState.log, diskEntry)
