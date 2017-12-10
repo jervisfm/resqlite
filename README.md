@@ -124,7 +124,8 @@ Performance work:
     - File paths do not seem to be created properly: FIXED
          - Just execute a db statement to get the file to be created.
 
-* Client Command not being processed.
+* Client Command not being processed: FIXED
+Issue was that we're not handling case of an unexpected request format.
 ```
 echo "{  }" | java -jar ~/bin/polyglot.jar  --command=call --endpoint=localhost:50050 --full_method=proto_raft.Raft/ClientCommand
 ```
