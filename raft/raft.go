@@ -523,6 +523,22 @@ func InitializeDatabases() {
 
 	raftDbLog.Exec("pragma database_list")
 	replicatedStateMachineDb.Exec("pragma database_list")
+
+	// Create Tables for the raft log persistence. We want two tables:
+	// 1) RaftLog with columns of log_index, log entry proto
+	// 2) RaftKeyValue with columns of key,value
+
+	raftLogTableCreateStatement :=
+		` CREATE TABLE IF NOT EXISTS RaftLog (
+             log_index INTEGER NOT NULL PRIMARY KEY,
+             log_entry TEXT);
+        `
+	_, err = raftDbLog.Exec(raftLogTableCreateStatement)
+	if err != nil {
+		log.Fatalf("Failed to Create raft log table. sql: %v err: %v", raftLogTableCreateStatement, err)
+	}
+	
+
 }
 
 
