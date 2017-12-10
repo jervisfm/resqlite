@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"sync"
 	"sync/atomic"
-	
+
 	"database/sql"
 )
 
@@ -68,10 +68,10 @@ type Server struct {
 	receivedVoteCount int64
 
 	// Database of Raft Log of operations.
-	raftLog sql.DB
+	raftLog *sql.DB
 
 	// Database of replicated state machine with applied client commands.
-	sqlDB  sql.DB
+	sqlDB  *sql.DB
 
 	// Mutex to synchronize concurrent access to data structure
 	lock sync.Mutex
@@ -405,6 +405,14 @@ func IsCandidate() bool {
 
 // Returns initial server state.
 func GetInitialServer() Server {
+	raftDbLog, err := sql.Open("sqlite3" , GetSqliteRaftLogPath())
+	if err != nil {
+		log.Fatalf("Failed to open raft db log: %v", GetSqliteRaftLogPath())
+	}
+	replicatedStateMachineDb, err := sql.Open("sqlite3", GetSqliteReplicatedStateMachineOpenPath())
+	if err != nil {
+		log.Fatalf("Failed to open replicated state machine database. Path: %v", GetSqliteReplicatedStateMachineOpenPath())
+	}
 	result := Server{
 		serverState: Follower,
 		raftConfig: RaftConfig{
@@ -416,6 +424,8 @@ func GetInitialServer() Server {
 		// We initialize last heartbeat time at startup because all servers start out
 		// in follower and this allows a node to determine when it should be a candidate.
 		lastHeartbeatTimeMillis: UnixMillis(),
+		raftLog: raftDbLog,
+		sqlDB : replicatedStateMachineDb,
 	}
 	return result
 }
