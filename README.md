@@ -125,4 +125,7 @@ Performance work:
          - Further investigation reveleded that this is because db.Close() is not being called.
            Thus, we need to all this to persist any changes that are final. Not efficient but we cant
            open/close database handle for each operation. 
+         - Hmm, further testing has shows that closing db may not be necessary. It may be sufficient 
+           however to close db statement.
+         - For the very first case, may want ot close db anyhow to get all chnages persisted.
 
