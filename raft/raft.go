@@ -20,6 +20,10 @@ import (
 	"sync/atomic"
 
 	"database/sql"
+	_ "strings"
+
+	// Import for sqlite3 support.
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -405,14 +409,6 @@ func IsCandidate() bool {
 
 // Returns initial server state.
 func GetInitialServer() Server {
-	raftDbLog, err := sql.Open("sqlite3" , GetSqliteRaftLogPath())
-	if err != nil {
-		log.Fatalf("Failed to open raft db log: %v", GetSqliteRaftLogPath())
-	}
-	replicatedStateMachineDb, err := sql.Open("sqlite3", GetSqliteReplicatedStateMachineOpenPath())
-	if err != nil {
-		log.Fatalf("Failed to open replicated state machine database. Path: %v", GetSqliteReplicatedStateMachineOpenPath())
-	}
 	result := Server{
 		serverState: Follower,
 		raftConfig: RaftConfig{
@@ -424,8 +420,6 @@ func GetInitialServer() Server {
 		// We initialize last heartbeat time at startup because all servers start out
 		// in follower and this allows a node to determine when it should be a candidate.
 		lastHeartbeatTimeMillis: UnixMillis(),
-		raftLog: raftDbLog,
-		sqlDB : replicatedStateMachineDb,
 	}
 	return result
 }
@@ -520,7 +514,20 @@ func GetLocalNodeId() string {
 
 // Initializes Raft on server startup.
 func InitializeRaft(addressPort string, otherNodes []Node) {
+	InitializeDatabases()
 	StartServerLoop()
+}
+func InitializeDatabases() {
+	raftDbLog, err := sql.Open("sqlite3" , GetSqliteRaftLogPath())
+	if err != nil {
+		log.Fatalf("Failed to open raft db log: %v err: %v", GetSqliteRaftLogPath(), err)
+	}
+	replicatedStateMachineDb, err := sql.Open("sqlite3", GetSqliteReplicatedStateMachineOpenPath())
+	if err != nil {
+		log.Fatalf("Failed to open replicated state machine database. Path: %v err: %v", GetSqliteReplicatedStateMachineOpenPath(), err)
+	}
+	raftServer.raftLog = raftDbLog
+	raftServer.sqlDB = replicatedStateMachineDb
 }
 
 func GetLastHeartbeatTimeMillis() int64 {
@@ -786,7 +793,9 @@ func GetSqliteReplicatedStateMachineOpenPath() string {
 
 // Returns database path to use for the raft log.
 func GetSqliteRaftLogPath() string {
-	return "./sqlite-raft-log" + GetLocalNodeId()
+	localId := GetLocalNodeId()
+	//localId = strings.Replace(localId, ":", "-", -1)
+	return "./sqlite-raft-log" + localId
 }
 
 // Issues append entries rpc to replicate command to majority of nodes and returns
