@@ -93,10 +93,12 @@ The following is a proposed implementation structure for the project:
 Main item left is implementing cluster replication. To get there we need to:
 
 * Add methods to accessing raft persistent state. 
-    - Have it backup to in memory state to start.
+    - Have it backup to in memory state to start: DONE.
     - Migrate it later to real durable storage later.
-* Add a method to raft service to receive client command
-* Implement sql service to leverage raft service for replication.
+* Add a method to raft service to receive client command: DONE
+* Implement AppendEntries receiver.
+* Add sqlite dependency
+
 
 Performance work:
 * Benchmark single node performance (w/o replication overhead)
