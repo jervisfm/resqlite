@@ -25,6 +25,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"strings"
 	"github.com/golang/protobuf/proto"
+	"strconv"
 )
 
 const (
@@ -593,10 +594,53 @@ func LoadPersistentStateIntoMemory() {
 
 func LoadPersistentKeyValues() {
 
+	// Load value for the current term.
+	LoadPersistedCurrentTerm()
+
+	// Load value for the voted for into memory
+	LoadPersistedVotedFor()
+
+}
+func LoadPersistedVotedFor() {
+	rows, err := raftServer.raftLogDb.Query("SELECT value FROM RaftKeyValue WHERE key = 'votedFor';")
+	if err != nil {
+		log.Fatalf("Failed to read votedFor value into memory. err: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var valueStr string
+		err = rows.Scan(&valueStr)
+		if err != nil {
+			log.Fatalf("Failed to read votedFor row entry. err: %v", err)
+		}
+
+		util.Log(util.INFO, "Restoring votedFor value to memory: %v", valueStr)
+		raftServer.raftState.persistentState.votedFor = valueStr
+	}
+}
+
+func LoadPersistedCurrentTerm() {
+	rows, err := raftServer.raftLogDb.Query("SELECT value FROM RaftKeyValue WHERE key = 'currentTerm';")
+	if err != nil {
+		log.Fatalf("Failed to read current term value into memory. err: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var valueStr string
+		err = rows.Scan(&valueStr)
+		if err != nil {
+			log.Fatalf("Failed to read current term row entry. err: %v", err)
+		}
+		restoredTerm, err := strconv.ParseInt(valueStr, 10, 64)
+		if err != nil {
+			log.Fatalf("Failed to parse current term as integer. value: %v err: %v", valueStr, err)
+		}
+		util.Log(util.INFO, "Restoring current term to memory: %v", restoredTerm)
+		raftServer.raftState.persistentState.currentTerm = restoredTerm
+	}
 }
 
 func LoadPersistentLog() {
-
 	rows, err := raftServer.raftLogDb.Query("SELECT log_index, log_entry FROM RaftLog ORDER BY log_index ASC;")
 	if err != nil {
 		log.Fatalf("Failed to load raft persistent state into memory. err: %v", err)
