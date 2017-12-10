@@ -1009,7 +1009,6 @@ func RequestVoteFromNode(node pb.RaftClient) {
 		ChangeToFollowerStatus()
 		SetRaftCurrentTerm(result.Term)
 	}
-
 }
 
 // Changes to Follower status.
