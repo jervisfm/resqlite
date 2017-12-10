@@ -53,6 +53,15 @@ This puts the tool under golang/bin so make sure that's part for your $PATH.
 $ export PATH=$PATH:$GOPATH/bin
 ```
 
+You would also need an implementation of golang sqlite3 drvier. The one we used is go-sqlite3 - https://github.com/mattn/go-sqlite3
+
+Install it like so on OS X:
+```
+$ brew install sqlite3
+$ go get github.com/mattn/go-sqlite3
+$ go install github.com/mattn/go-sqlite3
+```
+
 ### Raft Service
 Our simplify ease of testing, our cluster  would consist of 3 nodes such that we can tolerate any single node failture.
 
