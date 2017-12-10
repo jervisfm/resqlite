@@ -526,7 +526,8 @@ func InitializeDatabases() {
 
 	// Create Tables for the raft log persistence. We want two tables:
 	// 1) RaftLog with columns of log_index, log entry proto
-	// 2) RaftKeyValue with columns of key,value
+	// 2) RaftKeyValue with columns of key,value. This is used to keep two properties
+	//    votedFor and currentTerm.
 
 	raftLogTableCreateStatement :=
 		` CREATE TABLE IF NOT EXISTS RaftLog (
@@ -537,7 +538,16 @@ func InitializeDatabases() {
 	if err != nil {
 		log.Fatalf("Failed to Create raft log table. sql: %v err: %v", raftLogTableCreateStatement, err)
 	}
-	
+
+	raftKeyValueCreateStatement :=
+		` CREATE TABLE IF NOT EXISTS RaftKeyValue (
+              key TEXT NOT NULL PRIMARY KEY,
+              value TEXT);
+        `
+	_, err = raftDbLog.Exec(raftKeyValueCreateStatement)
+     if err != nil {
+     	log.Fatalf("Failed to create raft key value table. sql: %v, err: %v", raftKeyValueCreateStatement, err)
+	 }
 
 }
 
