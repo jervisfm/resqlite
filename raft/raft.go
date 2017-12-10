@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"sync"
 	"sync/atomic"
-	"google.golang.org/genproto/googleapis/rpc/code"
+	
 	"database/sql"
 )
 
