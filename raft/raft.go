@@ -755,7 +755,6 @@ func handleRpcEvent(event Event) {
 
 // Handles client command request.
 func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
-
 	if !IsLeader() {
 		result := pb.ClientCommandResponse{}
 		util.Log(util.WARN, "Rejecting client command because not leader")
@@ -769,6 +768,13 @@ func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
 		handleClientMutateCommand(event)
 	} else if event.request.GetQuery() != "" {
 		handleClientQueryCommand(event)
+	} else {
+		// Invalid / unexpected request.
+		result := pb.ClientCommandResponse{}
+		util.Log(util.WARN, "Invalid client command (not command/query): %v", event)
+		result.ResponseStatus = uint32(codes.InvalidArgument)
+		event.responseChan<- result
+		return
 	}
 
 }
