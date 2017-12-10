@@ -120,4 +120,5 @@ Performance work:
     - Want to fix though burning CPU on follower loop: Fixed
     - Need to look a go routine leak. We die when running with -race detector: FIXED
 
-
+* Databases
+    - File paths do not seem to be created properly.
