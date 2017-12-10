@@ -71,12 +71,6 @@ type Server struct {
 	// Counts number of nodes in cluster that have chosen this node to be a leader
 	receivedVoteCount int64
 
-	// Database of Raft Log of operations.
-	raftLog *sql.DB
-
-	// Database of replicated state machine with applied client commands.
-	sqlDB  *sql.DB
-
 	// Mutex to synchronize concurrent access to data structure
 	lock sync.Mutex
 }
@@ -526,9 +520,9 @@ func InitializeDatabases() {
 	if err != nil {
 		log.Fatalf("Failed to open replicated state machine database. Path: %v err: %v", GetSqliteReplicatedStateMachineOpenPath(), err)
 	}
-	raftServer.raftLog = raftDbLog
-	raftServer.sqlDB = replicatedStateMachineDb
 }
+
+
 
 func GetLastHeartbeatTimeMillis() int64 {
 	raftServer.lock.Lock()
