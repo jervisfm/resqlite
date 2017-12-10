@@ -752,6 +752,7 @@ func handleClientMutateCommand(event *RaftClientCommandRpcEvent) {
 // sql command.
 func ApplyCommandToStateMachine(event *RaftClientCommandRpcEvent) {
 	// TODO(jmuindi): implement
+	util.Log(util.INFO, "(Unimplemented) Update State machine with command: %v", event.request.Command)
 }
 
 // Issues append entries rpc to replicate command to majority of nodes and returns
