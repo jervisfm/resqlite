@@ -181,6 +181,58 @@ func SetPersistentVotedFor(newValue string)  {
 }
 
 func SetPersistentVotedForLocked(newValue string)  {
+	// Want to write to stable storage (database).
+	// First determine if we're updating or inserting value.
+
+	rows, err := raftServer.raftLogDb.Query("SELECT value FROM RaftKeyValue WHERE key = 'votedFor'")
+	if err != nil {
+		log.Fatalf("Failed to read persisted voted for while trying to update it. err: %v", err)
+	}
+	defer rows.Close()
+	votedForExists := false
+	for rows.Next() {
+		var valueStr string
+		err = rows.Scan(&valueStr)
+		if err != nil {
+			log.Fatalf("Error  reading persisted voted for row while try to update: %v", err)
+		}
+		votedForExists = true
+	}
+
+	// Now proceed with the update/insertion.
+	tx, err := raftServer.raftLogDb.Begin()
+	if err != nil {
+		log.Fatalf("Failed to begin db tx to update voted for. err:%v", err)
+	}
+
+	needUpdate := votedForExists
+	var statement *sql.Stmt
+	if needUpdate {
+		statement, err = tx.Prepare("UPDATE RaftKeyValue SET value = ? WHERE key = ?")
+		if err != nil {
+			log.Fatalf("Failed to prepare stmt to update voted for. err: %v", err)
+		}
+		_, err = statement.Exec(newValue, "votedFor")
+		if err != nil {
+			log.Fatalf("Failed to update voted for value. err: %v", err)
+		}
+	} else {
+		statement, err = tx.Prepare("INSERT INTO RaftKeyValue(key, value) values(?, ?)")
+		if err != nil {
+			log.Fatalf("Failed to create stmt to insert voted for. err: %v", err)
+		}
+		_, err = statement.Exec("votedFor", newValue)
+		if err != nil {
+			log.Fatalf("Failed to insert voted for value. err: %v", err)
+		}
+	}
+	defer statement.Close()
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalf("Failed to commit tx to update voted for. err: %v", err)
+	}
+
+	// Then update in-memory state last.
 	raftServer.raftState.persistentState.votedFor = newValue
 }
 
