@@ -521,8 +521,8 @@ func InitializeDatabases() {
 		log.Fatalf("Failed to open replicated state machine database. Path: %v err: %v", GetSqliteReplicatedStateMachineOpenPath(), err)
 	}
 
-	raftDbLog.Exec("describe")
-	replicatedStateMachineDb.Exec("describe")
+	raftDbLog.Exec("pragma database_list")
+	replicatedStateMachineDb.Exec("pragma database_list")
 }
 
 
