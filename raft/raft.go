@@ -751,8 +751,12 @@ func handleClientMutateCommand(event *RaftClientCommandRpcEvent) {
 // Applies the command to the local state machine. For us this, this is to apply the
 // sql command.
 func ApplyCommandToStateMachine(event *RaftClientCommandRpcEvent) {
-	// TODO(jmuindi): implement
 	util.Log(util.INFO, "(Unimplemented) Update State machine with command: %v", event.request.Command)
+	ApplySqlCommand(event.request.Command)
+}
+
+func ApplySqlCommand(sqlCommand string) {
+	// TODO(jmuindi): implement.
 }
 
 // Issues append entries rpc to replicate command to majority of nodes and returns
