@@ -358,6 +358,28 @@ func DeletePersistentLogEntryInclusive(startDeleteLogIndex int64) {
 // Note: input log index is 1-based.
 func DeletePersistentLogEntryInclusiveLocked(startDeleteLogIndex int64) {
 
+	// Delete first from database storage.
+	tx, err := raftServer.raftLogDb.Begin()
+	if err != nil {
+		log.Fatalf("Failed to begin db tx for delete log entries. err: %v", err)
+	}
+
+	statement, err := tx.Prepare("DELETE FROM RaftLog WHERE log_index >= ?")
+	if err != nil {
+		log.Fatalf("Failed to prepare sql statement to delete log entry. err: %v", err)
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(startDeleteLogIndex)
+	if err != nil {
+		log.Fatalf("Failed to execute sql statement to delete log entry. err: %v", err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalf("Failed to commit tx to delete log entry. err: %v", err)
+	}
+
+	// Finally update the in-memory state.
 	zeroBasedDeleteIndex := startDeleteLogIndex - 1
 	raftServer.raftState.persistentState.log = append(raftServer.raftState.persistentState.log[:zeroBasedDeleteIndex])
 }
