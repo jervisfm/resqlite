@@ -172,15 +172,15 @@ We chose four tests to run our benchmarking on:
 
 Running these tests on a single-node cluster (taking median of 3 runs), we find:
 
-    Test          |     DB      |       Time
+    Test         |      DB      |                    Time
     wOnly            ReSqlite          2.52s user 1.58s system 51% cpu 8.019 total
-    wOnly            Sqlite3          
+    wOnly            Sqlite3           0.21s user 0.01s system 95% cpu 0.227 total
     rOnly            ReSqlite          3.82s user 3.19s system 24% cpu 28.076 total
-    rOnly            Sqlite3          
+    rOnly            Sqlite3           15.92s user 5.88s system 23% cpu 1:34.64 total (of which 1:22:25 from cat)
     wHeavy           ReSqlite          1.45s user 0.85s system 55% cpu 4.136 total
-    wHeavy           Sqlite3          
+    wHeavy           Sqlite3           0.51s user 0.22s system 19% cpu 3.675 total
     rHeavy           ReSqlite          1.41s user 0.81s system 51% cpu 4.341 total
-    rHeavy           Sqlite3          
+    rHeavy           Sqlite3           0.79s user 0.33s system 19% cpu 5.792 total
 
 Note: wOnly must be run before rOnly.
 
