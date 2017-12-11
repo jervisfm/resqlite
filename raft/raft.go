@@ -26,7 +26,6 @@ import (
 	"strings"
 	"github.com/golang/protobuf/proto"
 	"strconv"
-	"math"
 )
 
 const (
