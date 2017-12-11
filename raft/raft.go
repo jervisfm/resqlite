@@ -255,6 +255,61 @@ func SetPersistentCurrentTerm(newValue int64) {
 }
 
 func SetPersistentCurrentTermLocked(newValue int64) {
+	// Write to durable storage (database) first.
+	// First determine if we're updating or inserting brand new value.
+
+	rows, err := raftServer.raftLogDb.Query("SELECT value FROM RaftKeyValue WHERE key = 'currentTerm'")
+	if err != nil {
+		log.Fatalf("Failed to read persisted current term while trying to update it. err: %v", err)
+	}
+	defer rows.Close()
+	valueExists := false
+	for rows.Next() {
+		var valueStr string
+		err = rows.Scan(&valueStr)
+		if err != nil {
+			log.Fatalf("Error reading persisted currentTerm row while try to update: %v", err)
+		}
+		valueExists = true
+	}
+
+	// Now proceed with the update/insertion.
+
+	tx, err := raftServer.raftLogDb.Begin()
+	if err != nil {
+		log.Fatalf("Failed to begin db tx to update current term. err:%v", err)
+	}
+
+	newValueStr := strconv.FormatInt(newValue, 10)
+	var statement *sql.Stmt
+	if valueExists {
+		// Then update it.
+		statement, err = tx.Prepare("UPDATE RaftKeyValue SET value = ? WHERE key = ?")
+		if err != nil {
+			log.Fatalf("Failed to prepare stmt to update current term. err: %v", err)
+		}
+		_, err = statement.Exec(newValueStr, "currentTerm")
+		if err != nil {
+			log.Fatalf("Failed to update current term value. err: %v", err)
+		}
+	} else {
+		// Insert a brand new one.
+		statement, err = tx.Prepare("INSERT INTO RaftKeyValue(key, value) values(?, ?)")
+		if err != nil {
+			log.Fatalf("Failed to create stmt to insert current term. err: %v", err)
+		}
+		_, err = statement.Exec("currentTerm", newValueStr)
+		if err != nil {
+			log.Fatalf("Failed to insert currentTerm value. err: %v", err)
+		}
+	}
+	defer statement.Close()
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalf("Failed to commit tx to update current term. err: %v", err)
+	}
+
+	// Then update in memory state last.
 	raftServer.raftState.persistentState.currentTerm = newValue
 }
 
