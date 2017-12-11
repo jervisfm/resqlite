@@ -117,6 +117,8 @@ Performance work:
 
 ### Testing
 
+#### Polyglot RPC Testing
+
 Using polygot for rpc testing: https://github.com/grpc-ecosystem/polyglot/releases/tag/v1.5.0
 Create test students table and add a value to it.
 ```
@@ -127,6 +129,61 @@ RPC command to query it
 ```
 $ $ echo "{ query: 'select * from students' }" | java -jar ~/bin/polyglot.jar  --command=call --endpoint=localhost:50050 --full_method=proto_raft.Raft/ClientCommand
 ```
+
+#### REPL based testing
+
+While our repl is still very much a work in progress, it can be used to test manual commands
+and responds to a subset of sqlite3 CLI syntax, with all non-deterministic operations removed
+(Transactions, Random, Now, etc).
+
+Launch the repl from the resqlite folder with:
+```
+go run main.go
+```
+
+
+The repl can be used in batch mode to pre-load a number of commands from a file before
+awaiting user input:
+```
+ go run main.go -batch='../data/chinook.txt' -interactive=true
+```
+
+### Benchmarking
+
+We use our repl to benchmark performance of our resqlite implementation against sqlite3's cli
+(we make the large assumption that CLI overhead is the same and the results will be
+representative of underlying db performance).
+
+Note: this is not quite apples to apples yet given that we are using an in-memory db for
+ReSqlite; however there are disk IOs since the logs are stored on disk.
+
+We do so by launching the repl in non-interactive mode:
+```
+go run main.go -batch='../data/chinook.txt'
+```
+
+We chose four tests to run our benchmarking on:
+
+         File                   |        Description        
+    data/benchmarks/wOnly.db       ~15,000 consecutive writes
+    data/benchmarks/rOnly.db       ~15,000 consecutive reads
+    data/benchmarks/wHeavy.db      ~1,500 writes, 200 reads, repeated 3 times.
+    data/benchmarks/rHeavy.db      200 writes, ~1,500 reads, repeated 4 times.
+
+Running these tests on a single-node cluster (taking median of 3 runs), we find:
+
+    Test          |     DB      |       Time
+    wOnly            ReSqlite          2.52s user 1.58s system 51% cpu 8.019 total
+    wOnly            Sqlite3          
+    rOnly            ReSqlite          3.82s user 3.19s system 24% cpu 28.076 total
+    rOnly            Sqlite3          
+    wHeavy           ReSqlite          1.45s user 0.85s system 55% cpu 4.136 total
+    wHeavy           Sqlite3          
+    rHeavy           ReSqlite          1.41s user 0.81s system 51% cpu 4.341 total
+    rHeavy           Sqlite3          
+
+Note: wOnly must be run before rOnly.
+
 
 ### Debugging Issues
 
