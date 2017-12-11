@@ -142,7 +142,12 @@ type RaftVolatileState struct {
 }
 
 type RaftLeaderState struct {
+
+	// Index of the next log entry to send to that server. Should be initialized
+	// at leader last log index + 1.
 	nextIndex  []int64
+
+	// Index of the highest log entry known to be replicated on each server.
 	matchIndex []int64
 }
 
@@ -1513,8 +1518,24 @@ func CandidateLoop() {
 
 // Reinitializes volatile leader state
 func ReinitVolatileLeaderState() {
+	if !IsLeader() {
+		return
+	}
+	volatileLeaderState := raftServer.raftState.volatileLeaderState
 
-	// TODO(jmuindi): implement
+	// Reset match index to 0.
+	numOtherNodes := len(GetOtherNodes())
+	volatileLeaderState.matchIndex = make([]int64, numOtherNodes)
+	for i, _ := range volatileLeaderState.matchIndex {
+		volatileLeaderState.matchIndex[i] = 0
+	}
+
+	// Reset next index to leader last log index + 1.
+	newVal := GetLastLogIndex() + 1
+	volatileLeaderState.nextIndex = make([]int64, numOtherNodes)
+	for i, _ := range volatileLeaderState.nextIndex {
+		volatileLeaderState.nextIndex[i] = newVal
+	}
 }
 
 
