@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"sync"
 	"sync/atomic"
+    "bytes"
 
 	"database/sql"
 
@@ -1061,6 +1062,7 @@ func handleClientQueryCommand(event *RaftClientCommandRpcEvent) {
 	if err != nil {
 		util.Log(util.WARN, "Sql query error: %v", err)
 		result.ResponseStatus = uint32(codes.Aborted)
+		result.QueryResponse = err.Error()
 		event.responseChan <- result
 		return
 	}
@@ -1070,6 +1072,7 @@ func handleClientQueryCommand(event *RaftClientCommandRpcEvent) {
 	if err != nil {
 		util.Log(util.WARN, "Sql cols query error: %v", err)
 		result.ResponseStatus = uint32(codes.Aborted)
+		result.QueryResponse = err.Error()
 		event.responseChan <- result
 		return
 	}
@@ -1082,6 +1085,7 @@ func handleClientQueryCommand(event *RaftClientCommandRpcEvent) {
 		tempData[i] = &rawData[i]
 	}
 
+    var buf bytes.Buffer
 	for rows.Next() {
 		err = rows.Scan(tempData...)
 		if err != nil {
@@ -1096,11 +1100,13 @@ func handleClientQueryCommand(event *RaftClientCommandRpcEvent) {
 				columnData[i] = string(val)
 			}
 		}
+		if len(columnData) > 0 {
+			buf.WriteString(strings.Join(columnData, " | ") + "\n")			
+		}
 	}
 
 	// Combine column data into one string.
-	queryResult := strings.Join(columnData, " | ")
-	result.QueryResponse = queryResult
+	result.QueryResponse = buf.String()
 
 	result.ResponseStatus = uint32(codes.OK)
 	event.responseChan <- result

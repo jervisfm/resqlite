@@ -8,12 +8,14 @@ import (
     "bytes"
     "strings"
     "errors"
+    "log"
     // "regexp"
     "google.golang.org/grpc"
     "golang.org/x/net/context"
+    "google.golang.org/grpc/codes"
+    "github.com/jervisfm/resqlite/util"
 
     pb "github.com/jervisfm/resqlite/proto/raft"
-    raft "github.com/jervisfm/resqlite/raft"
 )
 
 const (
@@ -22,7 +24,7 @@ const (
 )
 
 var raftServer pb.RaftClient
-var conn grpc.ClientConn
+var conn *grpc.ClientConn
 
 // Parse command to determine whether it is RO or making changes
 func CommandIsRO(query string) bool {
@@ -34,13 +36,9 @@ func CommandIsRO(query string) bool {
 }
 
 func Connect(addr string) () {
-    
-
-    if addr == nil {
-        addr = startingAddress
-    }
 
     // dial leader
+    var err error
     conn, err = grpc.Dial(addr, grpc.WithInsecure())
     if err != nil {
         log.Fatalf("did not connect: %v", err)
@@ -84,38 +82,40 @@ func Filter(command string) error {
 }
 
 func Process(command string) (string, error) {
-    fmt.Print("got %s", command)
     err := Filter(command)
     if err != nil {
-        return err.Error()
+        return "", err
     }
 
     // TODO: (sternhenri) will need to use regexp.Split in order to not split strings containing ;
     var buf bytes.Buffer
     comms := strings.Split(command, ";")
+    comms = comms[:len(comms) - 1]
     for _, com := range comms {
-        if (len(com) > 1 && text[:1] == ".") {
-            return "sqlite3 .* syntax not supported."
+        if (len(com) > 1 && com[:1] == ".") {
+            return "", errors.New("sqlite3 .* syntax not supported.")
         }
 
-        commandRequest := pb.CommandRequest {}
+        commandRequest := pb.ClientCommandRequest {}
         if CommandIsRO(com) == true {
-            commandRequest.query = com
+            commandRequest.Query = com
         } else {
-            commandRequest.command = com
+            commandRequest.Command = com
         }
+
+        var result* pb.ClientCommandResponse
 
         // 5 reconn attempts if leader failure
         attempts := 5
-        for i := range attempts {
+        for i := 1; i <= attempts; i++ {
 
-            result, err := raftServer.ClientCommand(context.Background, &commandRequest)
+            result, err = raftServer.ClientCommand(context.Background(), &commandRequest)
             if err != nil {
                 util.Log(util.ERROR, "Error sending command to node %v err: %v", raftServer, err)
-                return _, err
+                return "", err
             }
 
-            if result.ResponseStatus == uint32(codes.FailedPrecodintion) {
+            if result.ResponseStatus == uint32(codes.FailedPrecondition) {
                 util.Log(util.WARN, "Reconnecting with new leader: %v (%v/%v)", result.NewLeaderId, i + 1, attempts)
                 Connect(result.NewLeaderId)
                 continue
@@ -124,8 +124,7 @@ func Process(command string) (string, error) {
 
         // TODO: (sternhenri) may want to downgrade log fatals and not just abort if any query fails everywhere in the code
         if result.ResponseStatus != uint32(codes.OK) {
-            util.Log(util.ERROR, "Error with command: %v\n to node: %v\n response code:%v", com, raftServer, result.ResponseStatus)
-            return _, _
+            return "", errors.New(result.QueryResponse)
         }
 
         if CommandIsRO(com) == true {
@@ -133,7 +132,7 @@ func Process(command string) (string, error) {
         }
     }
 
-    return buf.String()
+    return buf.String(), nil
 }
 
 func Repl() {
@@ -149,7 +148,7 @@ func Repl() {
     }()
 
     // start with hardcoded server
-    Connect()
+    Connect(startingAddress)
 
     reader := bufio.NewReader(os.Stdin)
     var buf bytes.Buffer
@@ -158,6 +157,7 @@ func Repl() {
     for exit != true {
         fmt.Print("resqlite> ")
         text, _ := reader.ReadString('\n')
+        text = strings.TrimSpace(text)
 
         if (text == "") {
             // EOF received (^D)
@@ -168,10 +168,11 @@ func Repl() {
             continue
         }
 
-        for (text == "\n" || text[len(text)-2:] != ";\n") {
+        for (text == "" || text[len(text)-1:] != ";") {
             buf.WriteString(text)
             fmt.Print("     ...> ")
             text, _ = reader.ReadString('\n')
+            text = strings.TrimSpace(text)
 
             // imitating sqlite3 behavior
             if (text == "") {
@@ -180,9 +181,13 @@ func Repl() {
                 break
             }
         }
-        buf.WriteString(strings.TrimSpace(text))
+        buf.WriteString(text)
         output, err := Process(buf.String())
-        fmt.Println(output)
+        if err != nil {
+            fmt.Println(err)
+        } else if output != "" {
+            fmt.Println(output)            
+        }
         buf.Reset()
     }
 
@@ -210,7 +215,6 @@ func ParseArgs() string {
 }
 
 func main() {
-    db := ParseArgs()
-    rsql.CacheDb(db)
+    // db := ParseArgs()
     Repl()
 }
