@@ -1657,6 +1657,24 @@ func ReinitVolatileLeaderState() {
 }
 
 
+// serverIndex is index into otherNodes array.
+func GetNextIndexForServerAt(serverIndex int) int64 {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return raftServer.raftState.volatileLeaderState.nextIndex[serverIndex]
+}
+
+func SetNextIndexForServerAt(serverIndex int, newValue int64) int {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	raftServer.raftState.volatileLeaderState.nextIndex[serverIndex] = newValue
+}
+
+
+
+
 func GetServerState() ServerState {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
