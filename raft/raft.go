@@ -1241,7 +1241,7 @@ func IssueAppendEntriesRpcToNode(request pb.ClientCommandRequest, client pb.Raft
 	if result.Term > RaftCurrentTerm() {
 		ChangeToFollowerIfTermStale(result.Term)
 		return false
-	} 
+	}
 
 	// Return result of whether node accepted new log entry.
 	return result.Success
@@ -1830,10 +1830,14 @@ func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftC
 	if result.ResponseStatus != uint32(codes.OK) {
 		util.Log(util.ERROR, "Error response issuing append entry to get followers to match our state. note: %v, err: %v", client, err)
 	}
+	if result.Term > currentTerm {
+		ChangeToFollowerIfTermStale(result.Term)
+		return
+	}
 
+	if result.Success {
 
-
-
+	}
 
 }
 
