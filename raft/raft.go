@@ -1444,6 +1444,9 @@ func GetLastLogIndex() int64 {
 
 func GetLastLogIndexLocked() int64 {
 	raftLog := raftServer.raftState.persistentState.log
+	if len(raftLog) <= 0 {
+		return 0
+	}
 	lastItem := raftLog[len(raftLog) - 1]
 
 	if lastItem.LogIndex != int64(len(raftLog)) {
@@ -1770,6 +1773,7 @@ func SendAppendEntriesReplicationRpcToFollowers() {
 		// Pass a copy of node to avoid a race condition.
 		go func(i int, node pb.RaftClient) {
 			defer waitGroup.Done()
+			// TODO: continue
 			// SendAppendEntriesReplicationRpcForFollower(event.request, node)
 			success := false
 			if success {
