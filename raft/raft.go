@@ -1658,6 +1658,7 @@ func ReinitVolatileLeaderState() {
 	if !IsLeader() {
 		return
 	}
+	util.Log(util.INFO, "Reinitialized Leader state")
 	volatileLeaderState := raftServer.raftState.volatileLeaderState
 
 	// Reset match index to 0.
@@ -1681,6 +1682,7 @@ func GetNextIndexForServerAt(serverIndex int) int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
+	util.Log(util.INFO, "Get next index, serverIdex:%v nextIndex Len: %v", serverIndex, len(raftServer.raftState.volatileLeaderState.nextIndex))
 	return raftServer.raftState.volatileLeaderState.nextIndex[serverIndex]
 }
 
