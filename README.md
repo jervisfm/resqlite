@@ -103,10 +103,12 @@ Main item left is implementing cluster replication. To get there we need to:
 
 * Add methods to accessing raft persistent state. 
     - Have it backup to in memory state to start: DONE.
-    - Migrate it later to real durable storage later.
+    - Migrate it later to real durable storage later: DONE
 * Add a method to raft service to receive client command: DONE
+* Add sqlite dependency: DONE
 * Implement AppendEntries receiver.
-* Add sqlite dependency
+* Restore replicated state machine upon server start app.
+* Apply sql command.
 
 
 Performance work:
