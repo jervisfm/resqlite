@@ -1957,6 +1957,9 @@ func GetLeaderPreviousLogIndex() int64 {
 	// Because we would have just stored a new entry to our local log, when this
 	// method is called, the previous entry is the one before that.
 	raftLog := raftServer.raftState.persistentState.log
+	if len(raftLog) <= 1 {
+		return 0
+	}
 	lastEntryIndex := len(raftLog)-1
 	previousEntryIndex := lastEntryIndex - 1
 	previousEntry := raftLog[previousEntryIndex]
