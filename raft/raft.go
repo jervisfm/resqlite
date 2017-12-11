@@ -1043,6 +1043,7 @@ func handleClientQueryCommand(event *RaftClientCommandRpcEvent) {
 	}
 
 	columnData := make([]string, len(columns))
+
 	rawData := make([][]byte , len(columns))
 	tempData := make([]interface{}, len(columns))
 	for i, _ := range rawData {
@@ -1050,7 +1051,7 @@ func handleClientQueryCommand(event *RaftClientCommandRpcEvent) {
 	}
 
 	for rows.Next() {
-		err = rows.Scan(rawData...)
+		err = rows.Scan(tempData...)
 		if err != nil {
 			util.Log(util.WARN, "Sql query error. Partial data return: %v", err)
 			continue
