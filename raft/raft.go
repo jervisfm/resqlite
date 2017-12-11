@@ -1661,9 +1661,10 @@ func GetLeaderPreviousLogIndex() int64 {
 
 // Leader commit value used in the appendentries rpc request.
 func GetLeaderCommit() int64 {
-	// TODO: implement
-	return 0
-
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	
+	return raftServer.raftState.volatileState.commitIndex
 }
 
 
