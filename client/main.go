@@ -186,7 +186,7 @@ func Repl() {
         if err != nil {
             fmt.Println(err)
         } else if output != "" {
-            fmt.Println(output)            
+            fmt.Print(output)            
         }
         buf.Reset()
     }

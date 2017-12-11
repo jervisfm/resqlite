@@ -1108,9 +1108,7 @@ func handleClientQueryCommand(event *RaftClientCommandRpcEvent) {
 				columnData[i] = string(val)
 			}
 		}
-		if len(columnData) > 0 {
-			buf.WriteString(strings.Join(columnData, " | ") + "\n")			
-		}
+		buf.WriteString(strings.Join(columnData, " | ") + "\n")			
 	}
 
 	// Combine column data into one string.
