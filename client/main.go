@@ -120,6 +120,10 @@ func Process(command string) (string, error) {
                 Connect(result.NewLeaderId)
                 continue
             }
+
+            if result.ResponseStatus == uint32(codes.OK) {
+                break
+            }
         }
 
         // TODO: (sternhenri) may want to downgrade log fatals and not just abort if any query fails everywhere in the code
