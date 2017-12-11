@@ -1977,6 +1977,9 @@ func SetCommitIndex(newValue int64) {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
+	if raftServer.raftState.volatileState.commitIndex > newValue {
+		log.Fatalf("Trying to set commit index backwards")
+	}
 	raftServer.raftState.volatileState.commitIndex = newValue
 }
 
