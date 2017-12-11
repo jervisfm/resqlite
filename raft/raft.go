@@ -629,7 +629,7 @@ func PickElectionTimeOutMillis() int64 {
 	baseTimeMs := int64(300)
 	// Go random number is deterministic by default so we re-seed to get randomized behavior we want.
 	rand.Seed(time.Now().Unix())
-	randomOffsetMs := int64(rand.Intn(200))
+	randomOffsetMs := int64(rand.Intn(300))
 	return baseTimeMs + randomOffsetMs
 }
 
