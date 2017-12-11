@@ -965,12 +965,10 @@ func FollowerLoop() {
 		remainingHeartbeatTimeMs := GetRemainingHeartbeatTimeMs()
 		timeoutTimer := GetTimeoutWaitChannel(remainingHeartbeatTimeMs)
 
-		// TODO(jmuindi): Process Any RPCs that we have.
 		select {
 		case event := <-raftServer.events:
 			util.Log(util.VERBOSE, "Processing rpc #%v event: %v", rpcCount, event)
 			handleRpcEvent(event)
-			// pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 			rpcCount++
 		case <-timeoutTimer.C:
 			// Election timeout occured w/o heartbeat from leader.
