@@ -810,7 +810,31 @@ func LoadPersistentLog() {
 // Moves the commit index forward from the current value to the given index.
 // Note: newIndex should be the log index value which is 1-based.
 func MoveCommitIndexTo(newIndex int64) {
-	// TODO(jmuindi): Implement to apply effect of raft log statements to state machine.
+	util.Log(util.WARN, "(UNIMPLEMENTED) MoveCommitIndexTo newIndex: %v", newIndex)
+
+	startCommitIndex := GetCommitIndex()
+	newCommitIndex := newIndex
+
+	if newCommitIndex < startCommitIndex {
+		log.Fatalf("Commit index trying to move backwards. ")
+	}
+
+	startCommitIndexZeroBased := startCommitIndex - 1
+	newCommitIndexZeroBased := newCommitIndex - 1
+
+	raftLog := GetPersistentRaftLog()
+	commands := raftLog[startCommitIndexZeroBased + 1 : newCommitIndexZeroBased + 1]
+	for _, cmd := range commands {
+		if newCommitIndex > GetLastApplied() {
+			util.Log(util.INFO, "Applying log entry: %v", cmd)
+			ApplySqlCommand(cmd.LogEntry.Data)
+			SetLastApplied(cmd.LogIndex)
+		}
+	}
+	SetLastApplied(newCommitIndex)
+
+	// Finally update the commit index.
+	SetCommitIndex(newCommitIndex)
 }
 
 func GetLastHeartbeatTimeMillis() int64 {
@@ -1383,10 +1407,17 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 	// Last thing we do is advance our commit pointer.
 
 	if event.request.LeaderCommit > GetCommitIndex() {
-		newCommitIndex := math.Min(event.request.LeaderCommit, newLogIndex)
+		newCommitIndex := min(event.request.LeaderCommit, newLogIndex)
+		MoveCommitIndexTo(newCommitIndex)
 	}
+}
 
-
+func min(a, b int64) int64 {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
 }
 
 // Returns other nodes client connections
@@ -1751,6 +1782,19 @@ func GetCommitIndex() int64 {
 	return raftServer.raftState.volatileState.commitIndex
 }
 
+func GetLastApplied() int64  {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return raftServer.raftState.volatileState.lastApplied
+}
+
+func SetLastApplied(newValue int64) int64 {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	raftServer.raftState.volatileState.lastApplied = newValue
+}
 
 func SetCommitIndex(newValue int64) {
 	raftServer.lock.Lock()
