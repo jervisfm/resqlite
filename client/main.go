@@ -92,6 +92,9 @@ func Format(commandString string, sanitize bool) ([]string, error) {
 
 	// TODO: (sternhenri) will need to use regexp.Split in order to not split strings containing ;
 	commands := strings.Split(commandString, ";")
+    // split adds an unwanted whitespace at end
+    commands = commands[:len(commands)-1]
+
 	if sanitize {
 		for _, comm := range commands {
 			err := Sanitize(comm)
@@ -100,6 +103,7 @@ func Format(commandString string, sanitize bool) ([]string, error) {
 			}
 		}
 	}
+
 	return commands, nil
 }
 
@@ -122,6 +126,9 @@ func Execute(commands []string) (string, error) {
 		for i := 1; i <= attempts; i++ {
 
 			result, err = raftServer.ClientCommand(context.Background(), &commandRequest)
+            if result == nil {
+                fmt.Println("Trying again")
+            }
 			if err != nil {
 				util.Log(util.ERROR, "Error sending command to node %v err: %v", raftServer, err)
 				return "", err
@@ -162,9 +169,6 @@ func Repl() {
 		}
 	}()
 
-	// start with hardcoded server
-	Connect(startingAddress)
-
 	reader := bufio.NewReader(os.Stdin)
 	var buf bytes.Buffer
 	exit := false
@@ -201,7 +205,6 @@ func Repl() {
 		if err != nil {
 			fmt.Println(err)
 		}
-        commands = commands[:len(commands)-1]
 		output, err := Execute(commands)
 		if err != nil {
 			fmt.Println(err)
@@ -233,6 +236,8 @@ func ParseFlags() {
 
 func main() {
 	ParseFlags()
+    // start with hardcoded server
+    Connect(startingAddress)
 	if cmdFile != "" {
 
 		content, err := ioutil.ReadFile(cmdFile)
