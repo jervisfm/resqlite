@@ -1671,7 +1671,7 @@ func GetHeartbeatIntervalMillis() int64 {
 
 // Instructions that leaders would be performing.
 func LeaderLoop() {
-	// TOOD(jmuindi): implement.
+	// TODO(jmuindi): implement.
 	// Overview:
 	// - Reinitialize volatile leader state upon first leader succession.
 	// - Send initial empty append entries rpcs to clients as heartbeats. Repeat
