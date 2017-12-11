@@ -1860,6 +1860,12 @@ func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftC
 	// TODO(jmuindi): Consider batching the rpcs for improved efficiency.
 	request := pb.AppendEntriesRequest{}
 	nextIndexZeroBased := nextIndex - 1
+
+	if nextIndexZeroBased < 0 || nextIndexZeroBased >= int64(len(GetPersistentRaftLog())) {
+		// TODO: See if we can avoid hack fix:
+		util.Log(util.WARN, "nextIndexZeroBased is out of range: %v", nextIndexZeroBased)
+		return
+	}
 	logEntryToSend := GetPersistentRaftLogEntryAt(nextIndexZeroBased)
 	if nextIndexZeroBased >= 1 {
 		priorLogEntry := GetPersistentRaftLogEntryAt(nextIndexZeroBased - 1)
