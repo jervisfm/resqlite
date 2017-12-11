@@ -1751,6 +1751,15 @@ func GetCommitIndex() int64 {
 	return raftServer.raftState.volatileState.commitIndex
 }
 
+
+func SetCommitIndex(newValue int64) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	raftServer.raftState.volatileState.commitIndex = newValue
+}
+
+
 // Overall loop for the server.
 func StartServerLoop() {
 
