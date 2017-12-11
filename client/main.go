@@ -92,7 +92,6 @@ func Format(commandString string, sanitize bool) ([]string, error) {
 
 	// TODO: (sternhenri) will need to use regexp.Split in order to not split strings containing ;
 	commands := strings.Split(commandString, ";")
-
 	if sanitize {
 		for _, comm := range commands {
 			err := Sanitize(comm)
@@ -106,7 +105,6 @@ func Format(commandString string, sanitize bool) ([]string, error) {
 
 func Execute(commands []string) (string, error) {
 	var buf bytes.Buffer
-	commands = commands[:len(commands)-1]
 	for _, command := range commands {
 
 		commandRequest := pb.ClientCommandRequest{}
@@ -135,14 +133,13 @@ func Execute(commands []string) (string, error) {
 				continue
 			}
 
-			if result.ResponseStatus == uint32(codes.OK) {
+            // TODO: (sternhenri) may want to downgrade log fatals and not just abort if any query fails everywhere in the code
+            if result.ResponseStatus != uint32(codes.OK) {
+                return "", errors.New(result.QueryResponse)
+            } else {
 				break
 			}
-		}
 
-		// TODO: (sternhenri) may want to downgrade log fatals and not just abort if any query fails everywhere in the code
-		if result.ResponseStatus != uint32(codes.OK) {
-			return "", errors.New(result.QueryResponse)
 		}
 
 		if CommandIsRO(command) == true {
@@ -204,6 +201,7 @@ func Repl() {
 		if err != nil {
 			fmt.Println(err)
 		}
+        commands = commands[:len(commands)-1]
 		output, err := Execute(commands)
 		if err != nil {
 			fmt.Println(err)
@@ -217,7 +215,6 @@ func Repl() {
 }
 
 func Batch(batchedCommands string) {
-    fmt.Println(batchedCommands)
 	commands, _ := Format(batchedCommands, false)
 	_, err := Execute(commands)
     if (err != nil) {
