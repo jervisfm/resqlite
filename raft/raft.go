@@ -917,7 +917,6 @@ func IncrementElectionTerm() {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
-
 	SetPersistentVotedForLocked("")
 	IncrementPersistentCurrentTermLocked()
 	ResetReceivedVoteCount()
