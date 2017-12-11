@@ -1796,6 +1796,37 @@ func SendAppendEntriesReplicationRpcToFollowers() {
 
 	waitGroup.Wait()
 
+	// After replicating, increment the commit index if its possible.
+	IncrementCommitIndexIfPossible()
+}
+
+func IncrementCommitIndexIfPossible() {
+	proposedCommitIndex := GetCommitIndex() + 1
+	if proposedCommitIndex > int64(len(GetPersistentRaftLog())) {
+		return
+	}
+
+	numNodesWithMatchingLogs := 0
+	numNodes := len(GetOtherNodes())
+	for i:= 0; i < numNodes; i++ {
+		if GetMatchIndexForServerAt(i) >= proposedCommitIndex {
+			numNodesWithMatchingLogs++
+		}
+	}
+	otherNodesMajority := GetQuorumSize() - 1 // -1 because we don't count primary.
+	majorityMet := int64(numNodesWithMatchingLogs) >= otherNodesMajority
+	if !majorityMet {
+		return
+	}
+
+	// Check that for proposed commit index, term is current.
+	proposedCommitIndexZeroBased := proposedCommitIndex - 1
+	proposedCommitLogEntry := GetPersistentRaftLogEntryAt(proposedCommitIndexZeroBased)
+	currentTerm := RaftCurrentTerm()
+	if proposedCommitLogEntry.LogEntry.Term == currentTerm {
+		SetCommitIndex(proposedCommitIndex)
+	}
+
 }
 
 // If needed, sends append entries rpc to given "client" follower to make their logs match ours.
