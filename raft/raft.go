@@ -170,6 +170,14 @@ func GetPersistentRaftLog() []pb.DiskLogEntry {
 	return raftServer.raftState.persistentState.log
 }
 
+func GetPersistentRaftLogEntryAt(index int64) pb.DiskLogEntry {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	return raftServer.raftState.persistentState.log[index]
+}
+
+
+
 func GetPersistentVotedFor() string {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
@@ -1784,6 +1792,39 @@ func SendAppendEntriesReplicationRpcToFollowers() {
 // If needed, sends append entries rpc to given "client" follower to make their logs match ours.
 func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftClient) {
 	// TODO: implement.
+	if !IsLeader() {
+		return
+	}
+
+	lastLogIndex := GetLastLogIndex()
+	nextIndex := GetNextIndexForServerAt(serverIndex)
+
+	if lastLogIndex < nextIndex {
+		// Nothing to do for this follower - it's already up to date.
+		return
+	}
+
+	// Otherwise, We need to send append entry rpc with log entries starting
+	// at nextIndex. For now, just send one at a time.
+	// TODO(jmuindi): Consider batching the rpcs for improved efficiency.
+	nextIndexZeroBased := nextIndex - 1
+	logEntryToSend := GetPersistentRaftLogEntryAt(nextIndexZeroBased)
+	priorLogEntry :=  GetPersistentRaftLogEntryAt(nextIndexZeroBased - 1)
+
+
+	currentTerm := RaftCurrentTerm()
+	request := pb.AppendEntriesRequest{}
+	request.Term = currentTerm
+	request.LeaderId = GetLocalNodeId()
+	request.PrevLogIndex = priorLogEntry.LogIndex
+	request.PrevLogTerm = priorLogEntry.LogEntry.Term
+	request.LeaderCommit = GetCommitIndex()
+
+	request.Entries = append(request.Entries, logEntryToSend.LogEntry)
+
+
+
+
 
 }
 
