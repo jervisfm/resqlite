@@ -629,7 +629,7 @@ func PickElectionTimeOutMillis() int64 {
 	baseTimeMs := int64(300)
 	// Go random number is deterministic by default so we re-seed to get randomized behavior we want.
 	rand.Seed(time.Now().Unix())
-	randomOffsetMs := int64(rand.Intn(100))
+	randomOffsetMs := int64(rand.Intn(300))
 	return baseTimeMs + randomOffsetMs
 }
 
@@ -1167,6 +1167,8 @@ func GetSqliteReplicatedStateMachineOpenPath() string {
 	// to bring db upto speed.
 	const sqlOpenPath = "file::memory:?mode=memory&cache=shared"
 	return sqlOpenPath
+	// uncomment to get persisted file.
+	// return "./sqlite-db-" + strings.Replace(GetLocalNodeId(), ":", "-", -1)
 }
 
 // Returns database path to use for the raft log.
@@ -1370,7 +1372,7 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 
     raftLog := GetPersistentRaftLog()
     // Note: log index is 1-based, and so is prevLogIndex.
-    containsEntryAtPrevLogIndex := int64(len(raftLog) )>= prevLogIndex
+    containsEntryAtPrevLogIndex := prevLogIndex > 0 && int64(len(raftLog))>= prevLogIndex
 	if !containsEntryAtPrevLogIndex {
 		util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
 		result.Success = false
@@ -1658,7 +1660,8 @@ func ReinitVolatileLeaderState() {
 	if !IsLeader() {
 		return
 	}
-	volatileLeaderState := raftServer.raftState.volatileLeaderState
+	util.Log(util.INFO, "Reinitialized Leader state")
+	volatileLeaderState := &raftServer.raftState.volatileLeaderState
 
 	// Reset match index to 0.
 	numOtherNodes := len(GetOtherNodes())
@@ -1673,6 +1676,7 @@ func ReinitVolatileLeaderState() {
 	for i, _ := range volatileLeaderState.nextIndex {
 		volatileLeaderState.nextIndex[i] = newVal
 	}
+	util.Log(util.INFO, "After init: nextIndex len: %v", len(raftServer.raftState.volatileLeaderState.nextIndex))
 }
 
 
@@ -1681,6 +1685,7 @@ func GetNextIndexForServerAt(serverIndex int) int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
+	util.Log(util.INFO, "Get next index, serverIdex:%v nextIndex Len: %v", serverIndex, len(raftServer.raftState.volatileLeaderState.nextIndex))
 	return raftServer.raftState.volatileLeaderState.nextIndex[serverIndex]
 }
 
@@ -1853,17 +1858,23 @@ func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftC
 	// Otherwise, We need to send append entry rpc with log entries starting
 	// at nextIndex. For now, just send one at a time.
 	// TODO(jmuindi): Consider batching the rpcs for improved efficiency.
+	request := pb.AppendEntriesRequest{}
 	nextIndexZeroBased := nextIndex - 1
 	logEntryToSend := GetPersistentRaftLogEntryAt(nextIndexZeroBased)
-	priorLogEntry :=  GetPersistentRaftLogEntryAt(nextIndexZeroBased - 1)
-
+	if nextIndexZeroBased >= 1 {
+		priorLogEntry := GetPersistentRaftLogEntryAt(nextIndexZeroBased - 1)
+		request.PrevLogIndex = priorLogEntry.LogIndex
+		request.PrevLogTerm = priorLogEntry.LogEntry.Term
+	} else {
+		// They don't exist.
+		request.PrevLogIndex = 0
+		request.PrevLogTerm = 0
+	}
 
 	currentTerm := RaftCurrentTerm()
-	request := pb.AppendEntriesRequest{}
 	request.Term = currentTerm
 	request.LeaderId = GetLocalNodeId()
-	request.PrevLogIndex = priorLogEntry.LogIndex
-	request.PrevLogTerm = priorLogEntry.LogEntry.Term
+
 	request.LeaderCommit = GetCommitIndex()
 
 	request.Entries = append(request.Entries, logEntryToSend.LogEntry)
@@ -1871,9 +1882,11 @@ func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftC
 	result, err := client.AppendEntries(context.Background(), &request)
 	if err != nil {
 		util.Log(util.ERROR, "Error issuing append entry to get followers to match our state. note: %v, err: %v", client, err)
+		return
 	}
 	if result.ResponseStatus != uint32(codes.OK) {
 		util.Log(util.ERROR, "Error response issuing append entry to get followers to match our state. note: %v, err: %v", client, err)
+		return
 	}
 	if result.Term > currentTerm {
 		ChangeToFollowerIfTermStale(result.Term)
@@ -1952,6 +1965,9 @@ func GetLeaderPreviousLogIndex() int64 {
 	// Because we would have just stored a new entry to our local log, when this
 	// method is called, the previous entry is the one before that.
 	raftLog := raftServer.raftState.persistentState.log
+	if len(raftLog) <= 1 {
+		return 0
+	}
 	lastEntryIndex := len(raftLog)-1
 	previousEntryIndex := lastEntryIndex - 1
 	previousEntry := raftLog[previousEntryIndex]
