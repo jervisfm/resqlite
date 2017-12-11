@@ -26,6 +26,7 @@ import (
 	"strings"
 	"github.com/golang/protobuf/proto"
 	"strconv"
+	"math"
 )
 
 const (
@@ -1377,6 +1378,12 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		AddPersistentLogEntry(*newEntry)
 		result.Success = true
 
+	}
+
+	// Last thing we do is advance our commit pointer.
+
+	if event.request.LeaderCommit > GetLeaderCommit() {
+		newCommitIndex := math.Min(event.request.LeaderCommit, newLogIndex)
 	}
 
 
