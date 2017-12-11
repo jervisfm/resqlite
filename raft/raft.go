@@ -809,7 +809,31 @@ func LoadPersistentLog() {
 // Moves the commit index forward from the current value to the given index.
 // Note: newIndex should be the log index value which is 1-based.
 func MoveCommitIndexTo(newIndex int64) {
-	// TODO(jmuindi): Implement to apply effect of raft log statements to state machine.
+	util.Log(util.WARN, "(UNIMPLEMENTED) MoveCommitIndexTo newIndex: %v", newIndex)
+
+	startCommitIndex := GetCommitIndex()
+	newCommitIndex := newIndex
+
+	if newCommitIndex < startCommitIndex {
+		log.Fatalf("Commit index trying to move backwards. ")
+	}
+
+	startCommitIndexZeroBased := startCommitIndex - 1
+	newCommitIndexZeroBased := newCommitIndex - 1
+
+	raftLog := GetPersistentRaftLog()
+	commands := raftLog[startCommitIndexZeroBased + 1 : newCommitIndexZeroBased + 1]
+	for _, cmd := range commands {
+		if newCommitIndex > GetLastApplied() {
+			util.Log(util.INFO, "Applying log entry: %v", cmd)
+			ApplySqlCommand(cmd.LogEntry.Data)
+			SetLastApplied(cmd.LogIndex)
+		}
+	}
+	SetLastApplied(newCommitIndex)
+
+	// Finally update the commit index.
+	SetCommitIndex(newCommitIndex)
 }
 
 func GetLastHeartbeatTimeMillis() int64 {
@@ -1151,16 +1175,18 @@ func IssueAppendEntriesRpcToMajorityNodes(event *RaftClientCommandRpcEvent) bool
 	waitGroup.Add(len(otherNodes))
 
 	numOtherNodeSuccessRpcs := int32(0)
-
-	for _, node := range otherNodes {
+    leaderLastLogIndex := GetLastLogIndex()
+	for i, node := range otherNodes {
 		// Pass a copy of node to avoid a race condition.
-		go func(node pb.RaftClient) {
+		go func(i int, node pb.RaftClient) {
 			defer waitGroup.Done()
 			success := IssueAppendEntriesRpcToNode(event.request, node)
 			if success {
 				atomic.AddInt32(&numOtherNodeSuccessRpcs, 1)
+				SetMatchIndexForServerAt(i, leaderLastLogIndex)
+				SetNextIndexForServerAt(i, leaderLastLogIndex + 1)
 			}
-		}(node)
+		}(i, node)
 	}
 
 	waitGroup.Wait()
@@ -1185,7 +1211,7 @@ func IssueAppendEntriesRpcToNode(request pb.ClientCommandRequest, client pb.Raft
 	appendEntryRequest.LeaderId = GetLocalNodeId()
 	appendEntryRequest.PrevLogIndex = GetLeaderPreviousLogIndex()
 	appendEntryRequest.PrevLogTerm = GetLeaderPreviousLogTerm()
-	appendEntryRequest.LeaderCommit = GetLeaderCommit()
+	appendEntryRequest.LeaderCommit = GetCommitIndex()
 
 	newEntry := pb.LogEntry{}
 	newEntry.Term = currentTerm
@@ -1316,7 +1342,10 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 	}
 
 	// Otherwise process regular append entries rpc (receiver impl).
-	// TODO(jmuindi): Implement
+	if len(event.request.Entries) > 1 {
+		util.Log(util.WARN, "Server sent more than one log entry in append entries rpc")
+	}
+
 	result:= pb.AppendEntriesResponse{}
 	result.Term = currentTerm
 	result.ResponseStatus = uint32(codes.OK)
@@ -1328,7 +1357,7 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 
     raftLog := GetPersistentRaftLog()
     // Note: log index is 1-based, and so is prevLogIndex.
-    containsEntryAtPrevLogIndex := len(raftLog) >= prevLogIndex
+    containsEntryAtPrevLogIndex := int64(len(raftLog) )>= prevLogIndex
 	if !containsEntryAtPrevLogIndex {
 		util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
 		result.Success = false
@@ -1337,7 +1366,8 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 	}
 	// So, we have an entry at that position. Confirm that the terms match.
 	// We want to reply false if the terms do not match at that position.
-	ourLogEntry := raftLog[prevLogIndex-1]  // -1 because log index is 1-based.
+	prevLogIndexZeroBased := prevLogIndex - 1  // -1 because log index is 1-based.
+	ourLogEntry := raftLog[prevLogIndexZeroBased]
 	entryTermsMatch := ourLogEntry.LogEntry.Term == prevLogTerm
 	if !entryTermsMatch {
 		util.Log(util.INFO, "Rejecting append entries rpc because log terms don't match. Ours: %v, theirs: %v", ourLogEntry.LogEntry.Term, prevLogTerm )
@@ -1346,8 +1376,51 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		return
 	}
 
+	// Delete log entries that conflict with those from leader.
+	newEntry := event.request.Entries[0]
+	newLogIndex := prevLogIndex + 1
+	newLogIndexZeroBased := newLogIndex -1
+	containsEntryAtNewLogIndex := int64(len(raftLog)) >= newLogIndex
+	if containsEntryAtNewLogIndex {
+		// Check whether we have a conflict (terms differ).
+		ourEntry := raftLog[newLogIndexZeroBased]
+		theirEntry := newEntry
 
+		haveConflict := ourEntry.LogEntry.Term != theirEntry.Term
+		if haveConflict {
+			// We must make our logs match the leader. Thus, we need to delete
+			// all our entries starting from the new entry position.
+			DeletePersistentLogEntryInclusive(newLogIndex)
+			AddPersistentLogEntry(*newEntry)
+			result.Success = true
+		} else {
+			// We do not need to add any new entries to our log, because existing
+			// one already matches the leader.
+			result.Success = true
+		}
+	} else {
+		// We need to insert new entry into the log.
+		AddPersistentLogEntry(*newEntry)
+		result.Success = true
 
+	}
+
+	// Last thing we do is advance our commit pointer.
+
+	if event.request.LeaderCommit > GetCommitIndex() {
+		newCommitIndex := min(event.request.LeaderCommit, newLogIndex)
+		MoveCommitIndexTo(newCommitIndex)
+	}
+
+	event.responseChan<- result
+}
+
+func min(a, b int64) int64 {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
 }
 
 // Returns other nodes client connections
@@ -1584,6 +1657,36 @@ func ReinitVolatileLeaderState() {
 }
 
 
+// serverIndex is index into otherNodes array.
+func GetNextIndexForServerAt(serverIndex int) int64 {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return raftServer.raftState.volatileLeaderState.nextIndex[serverIndex]
+}
+
+func SetNextIndexForServerAt(serverIndex int, newValue int64)  {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	raftServer.raftState.volatileLeaderState.nextIndex[serverIndex] = newValue
+}
+
+func GetMatchIndexForServerAt(serverIndex int) int64 {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return raftServer.raftState.volatileLeaderState.matchIndex[serverIndex]
+}
+
+func SetMatchIndexForServerAt(serverIndex int, newValue int64) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	raftServer.raftState.volatileLeaderState.matchIndex[serverIndex] = newValue
+}
+
+
 func GetServerState() ServerState {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
@@ -1599,7 +1702,7 @@ func GetHeartbeatIntervalMillis() int64 {
 
 // Instructions that leaders would be performing.
 func LeaderLoop() {
-	// TOOD(jmuindi): implement.
+	// TODO(jmuindi): implement.
 	// Overview:
 	// - Reinitialize volatile leader state upon first leader succession.
 	// - Send initial empty append entries rpcs to clients as heartbeats. Repeat
@@ -1625,6 +1728,20 @@ func LeaderLoop() {
 		}
 	}()
 
+	// Send Append Entries rpcs to followers to replicate our logs.
+	go func() {
+		util.Log(util.INFO, "Starting to Send append entries rpcs to followers in background")
+		for {
+			if GetServerState() != Leader {
+				util.Log(util.INFO, "No longer leader. Stopping append entries replication rpcs")
+				return
+			}
+			SendAppendEntriesReplicationRpcToFollowers()
+			time.Sleep(time.Duration(GetHeartbeatIntervalMillis()) * time.Millisecond)
+		}
+	}()
+
+
 	for {
 		// While processing RPC, we may learn we no longer a valid leader.
 		if GetServerState() != Leader {
@@ -1636,6 +1753,11 @@ func LeaderLoop() {
 			handleRpcEvent(event)
 		}
 	}
+}
+
+
+func SendAppendEntriesReplicationRpcToFollowers() {
+	// TODO: implement
 }
 
 // Send heart beat rpcs to followers in parallel and waits for them to all complete.
@@ -1661,7 +1783,7 @@ func SendHeartBeatRpc(node pb.RaftClient) {
 	request := pb.AppendEntriesRequest{}
 	request.Term = RaftCurrentTerm()
 	request.LeaderId = GetLocalNodeId()
-	request.LeaderCommit = GetLeaderCommit()
+	request.LeaderCommit = GetCommitIndex()
 
 	// Log entries are empty/nil for heartbeat rpcs, so no need to
 	// set previous log index, previous log term.
@@ -1705,11 +1827,32 @@ func GetLeaderPreviousLogIndex() int64 {
 }
 
 // Leader commit value used in the appendentries rpc request.
-func GetLeaderCommit() int64 {
+func GetCommitIndex() int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
 	return raftServer.raftState.volatileState.commitIndex
+}
+
+func GetLastApplied() int64  {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return raftServer.raftState.volatileState.lastApplied
+}
+
+func SetLastApplied(newValue int64)  {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	raftServer.raftState.volatileState.lastApplied = newValue
+}
+
+func SetCommitIndex(newValue int64) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	raftServer.raftState.volatileState.commitIndex = newValue
 }
 
 
