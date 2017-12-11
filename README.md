@@ -115,6 +115,19 @@ Performance work:
 * Benchmark single node performance (w/o replication overhead)
 * Benchmark replicated cluster performance (3 nodes).
 
+### Testing
+
+Using polygot for rpc testing: https://github.com/grpc-ecosystem/polyglot/releases/tag/v1.5.0
+Create test students table and add a value to it.
+```
+$ echo "{ command: 'create table if not exists students(id integer primary key not null, name text); insert or replace into students(id, name) values(1, \"John\")' }" | java -jar ~/bin/polyglot.jar  --command=call --endpoint=localhost:50050 --full_method=proto_raft.Raft/ClientCommand
+```
+
+RPC command to query it
+```
+$ $ echo "{ query: 'select * from students' }" | java -jar ~/bin/polyglot.jar  --command=call --endpoint=localhost:50050 --full_method=proto_raft.Raft/ClientCommand
+```
+
 ### Debugging Issues
 
 * Leader election
