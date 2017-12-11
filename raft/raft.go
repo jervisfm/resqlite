@@ -1167,6 +1167,8 @@ func GetSqliteReplicatedStateMachineOpenPath() string {
 	// to bring db upto speed.
 	const sqlOpenPath = "file::memory:?mode=memory&cache=shared"
 	return sqlOpenPath
+	// uncomment to get persisted file.
+	// return "./sqlite-db-" + strings.Replace(GetLocalNodeId(), ":", "-", -1)
 }
 
 // Returns database path to use for the raft log.
