@@ -1444,6 +1444,9 @@ func GetLastLogIndex() int64 {
 
 func GetLastLogIndexLocked() int64 {
 	raftLog := raftServer.raftState.persistentState.log
+	if len(raftLog) <= 0 {
+		return 0
+	}
 	lastItem := raftLog[len(raftLog) - 1]
 
 	if lastItem.LogIndex != int64(len(raftLog)) {
@@ -1758,6 +1761,31 @@ func LeaderLoop() {
 
 func SendAppendEntriesReplicationRpcToFollowers() {
 	// TODO: implement
+	otherNodes := GetOtherNodes()
+
+	// Make RPCs in parallel but wait for all of them to complete.
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(len(otherNodes))
+
+	numOtherNodeSuccessRpcs := int32(0)
+	leaderLastLogIndex := GetLastLogIndex()
+	for i, node := range otherNodes {
+		// Pass a copy of node to avoid a race condition.
+		go func(i int, node pb.RaftClient) {
+			defer waitGroup.Done()
+			// TODO: continue
+			// SendAppendEntriesReplicationRpcForFollower(event.request, node)
+			success := false
+			if success {
+				atomic.AddInt32(&numOtherNodeSuccessRpcs, 1)
+				SetMatchIndexForServerAt(i, leaderLastLogIndex)
+				SetNextIndexForServerAt(i, leaderLastLogIndex + 1)
+			}
+		}(i, node)
+	}
+
+	waitGroup.Wait()
+
 }
 
 // Send heart beat rpcs to followers in parallel and waits for them to all complete.
