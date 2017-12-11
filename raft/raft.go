@@ -1341,7 +1341,6 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 	}
 
 	// Otherwise process regular append entries rpc (receiver impl).
-	// TODO(jmuindi): Implement
 	if len(event.request.Entries) > 1 {
 		util.Log(util.WARN, "Server sent more than one log entry in append entries rpc")
 	}
@@ -1411,7 +1410,7 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		newCommitIndex := min(event.request.LeaderCommit, newLogIndex)
 		MoveCommitIndexTo(newCommitIndex)
 	}
-	
+
 	event.responseChan<- result
 }
 
