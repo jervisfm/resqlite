@@ -1697,6 +1697,20 @@ func LeaderLoop() {
 		}
 	}()
 
+	// Send Append Entries rpcs to followers to replicate our logs.
+	go func() {
+		util.Log(util.INFO, "Starting to Send append entries rpcs to followers in background")
+		for {
+			if GetServerState() != Leader {
+				util.Log(util.INFO, "No longer leader. Stopping append entries replication rpcs")
+				return
+			}
+			SendAppendEntriesReplicationRpcToFollowers()
+			time.Sleep(time.Duration(GetHeartbeatIntervalMillis()) * time.Millisecond)
+		}
+	}()
+
+
 	for {
 		// While processing RPC, we may learn we no longer a valid leader.
 		if GetServerState() != Leader {
@@ -1708,6 +1722,11 @@ func LeaderLoop() {
 			handleRpcEvent(event)
 		}
 	}
+}
+
+
+func SendAppendEntriesReplicationRpcToFollowers() {
+	// TODO: implement
 }
 
 // Send heart beat rpcs to followers in parallel and waits for them to all complete.
