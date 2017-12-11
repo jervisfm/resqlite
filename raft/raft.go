@@ -1396,6 +1396,7 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		} else {
 			// We do not need to add any new entries to our log, because existing
 			// one already matches the leader.
+			result.Success = true
 		}
 	} else {
 		// We need to insert new entry into the log.
@@ -1410,6 +1411,8 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		newCommitIndex := min(event.request.LeaderCommit, newLogIndex)
 		MoveCommitIndexTo(newCommitIndex)
 	}
+	
+	event.responseChan<- result
 }
 
 func min(a, b int64) int64 {
