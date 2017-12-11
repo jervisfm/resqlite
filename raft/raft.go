@@ -1186,7 +1186,7 @@ func IssueAppendEntriesRpcToNode(request pb.ClientCommandRequest, client pb.Raft
 	appendEntryRequest.LeaderId = GetLocalNodeId()
 	appendEntryRequest.PrevLogIndex = GetLeaderPreviousLogIndex()
 	appendEntryRequest.PrevLogTerm = GetLeaderPreviousLogTerm()
-	appendEntryRequest.LeaderCommit = GetLeaderCommit()
+	appendEntryRequest.LeaderCommit = GetCommitIndex()
 
 	newEntry := pb.LogEntry{}
 	newEntry.Term = currentTerm
@@ -1382,7 +1382,7 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 
 	// Last thing we do is advance our commit pointer.
 
-	if event.request.LeaderCommit > GetLeaderCommit() {
+	if event.request.LeaderCommit > GetCommitIndex() {
 		newCommitIndex := math.Min(event.request.LeaderCommit, newLogIndex)
 	}
 
@@ -1700,7 +1700,7 @@ func SendHeartBeatRpc(node pb.RaftClient) {
 	request := pb.AppendEntriesRequest{}
 	request.Term = RaftCurrentTerm()
 	request.LeaderId = GetLocalNodeId()
-	request.LeaderCommit = GetLeaderCommit()
+	request.LeaderCommit = GetCommitIndex()
 
 	// Log entries are empty/nil for heartbeat rpcs, so no need to
 	// set previous log index, previous log term.
@@ -1744,13 +1744,12 @@ func GetLeaderPreviousLogIndex() int64 {
 }
 
 // Leader commit value used in the appendentries rpc request.
-func GetLeaderCommit() int64 {
+func GetCommitIndex() int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
 	return raftServer.raftState.volatileState.commitIndex
 }
-
 
 // Overall loop for the server.
 func StartServerLoop() {
