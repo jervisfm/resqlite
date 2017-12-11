@@ -1293,6 +1293,14 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		ChangeToFollowerStatus()
 		SetRaftCurrentTerm(theirTerm)
 		currentTerm = theirTerm
+	} else if theirTerm < currentTerm {
+		// We want to reply false here as leader term is stale.
+		result := pb.AppendEntriesResponse{}
+		result.Term = currentTerm
+		result.ResponseStatus = uint32(codes.OK)
+		result.Success = false
+		event.responseChan<- result
+		return
 	}
 
 	isHeartBeatRpc := len(event.request.Entries) == 0
@@ -1300,8 +1308,9 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		handleHeartBeatRpc(event)
 		return
 	}
-	// Otherwise process regular append entries rpc
+	// Otherwise process regular append entries rpc (receiver impl).
 	// TODO(jmuindi): Implement
+
 
 }
 
@@ -1663,7 +1672,7 @@ func GetLeaderPreviousLogIndex() int64 {
 func GetLeaderCommit() int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
-	
+
 	return raftServer.raftState.volatileState.commitIndex
 }
 
