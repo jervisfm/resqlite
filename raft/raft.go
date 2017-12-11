@@ -1679,7 +1679,12 @@ func GetMatchIndexForServerAt(serverIndex int) int64 {
 	return raftServer.raftState.volatileLeaderState.matchIndex[serverIndex]
 }
 
+func SetMatchIndexForServerAt(serverIndex int, newValue int64) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
 
+	raftServer.raftState.volatileLeaderState.matchIndex[serverIndex] = newValue
+}
 
 
 func GetServerState() ServerState {
