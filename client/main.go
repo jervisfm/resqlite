@@ -1,224 +1,253 @@
 package main
 
 import (
-    "bufio"
-    "os"
-    "os/signal"
-    "fmt"
-    "bytes"
-    "strings"
-    "errors"
-    "log"
-    // "regexp"
-    "google.golang.org/grpc"
-    "golang.org/x/net/context"
-    "google.golang.org/grpc/codes"
-    "github.com/jervisfm/resqlite/util"
+	"bufio"
+	"bytes"
+	"errors"
+    "flag"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"strings"
+	// "regexp"
+	"github.com/jervisfm/resqlite/util"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"io/ioutil"
 
-    pb "github.com/jervisfm/resqlite/proto/raft"
+	pb "github.com/jervisfm/resqlite/proto/raft"
 )
 
 const (
-    modifier = "SELECT "
-    startingAddress = "localhost:50050"
+	modifier        = "SELECT "
+	startingAddress = "localhost:50050"
 )
 
 var raftServer pb.RaftClient
 var conn *grpc.ClientConn
+var interactive bool
+var cmdFile string
 
 // Parse command to determine whether it is RO or making changes
 func CommandIsRO(query string) bool {
-    // input trimmed at client
-    if (len(query) >= len(modifier) && query[:len(modifier)] == modifier) {
-        return false;
-    }
-    return true;
+	// input trimmed at client
+	if len(query) >= len(modifier) && query[:len(modifier)] == modifier {
+		return false
+	}
+	return true
 }
 
-func Connect(addr string) () {
+func Connect(addr string) {
 
-    // dial leader
-    var err error
-    conn, err = grpc.Dial(addr, grpc.WithInsecure())
-    if err != nil {
-        log.Fatalf("did not connect: %v", err)
-        os.Exit(1)
-    }
+	// dial leader
+	var err error
+	conn, err = grpc.Dial(addr, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+		os.Exit(1)
+	}
 
-    raftServer = pb.NewRaftClient(conn)
+	raftServer = pb.NewRaftClient(conn)
 }
 
 // ====
 
-func Filter(command string) error {
-    var err error
+func Sanitize(command string) error {
+	var err error
 
-    command = strings.Replace(command, "\n", "", -1)
+	command = strings.Replace(command, "\n", "", -1)
 
-    // lazy case-insensitive but wtv for now
-    upperC := strings.ToUpper(command)
+	if len(command) > 1 && command[:1] == "." {
+		return errors.New("sqlite3 .* syntax not supported.")
+	}
 
-    if strings.Contains(upperC, "RANDOM()") {
-        return errors.New("random() or other non-determinstic commands not supported.")
-    }
+	// lazy case-insensitive but wtv for now
+	upperC := strings.ToUpper(command)
 
-    // TODO(sternhenri): deal with utc modifier
-    if (strings.Contains(upperC, "('NOW'") || strings.Contains(upperC, "'NOW')")) {
-        return errors.New("now or other non-determinstic commands not supported.")
-    }
+	if strings.Contains(upperC, "RANDOM()") {
+		return errors.New("random() or other non-determinstic commands not supported.")
+	}
 
-    if (strings.Contains(upperC, "BEGIN TRANSACTION") ||
-        strings.Contains(upperC, "COMMIT TRANSACTION") ||
-        strings.Contains(upperC, "END TRANSACTION") ||
-        strings.Contains(upperC, "ROLLBACK TRANSACTION")) {
-        
-        return errors.New("transactions not supported.")
-    }
+	// TODO(sternhenri): deal with utc modifier
+	if strings.Contains(upperC, "('NOW'") || strings.Contains(upperC, "'NOW')") {
+		return errors.New("now or other non-determinstic commands not supported.")
+	}
 
-    // doesn't deal with user-defined functions as enabled in
-    // SQLite C interface.
+	if strings.Contains(upperC, "BEGIN TRANSACTION") ||
+		strings.Contains(upperC, "COMMIT TRANSACTION") ||
+		strings.Contains(upperC, "END TRANSACTION") ||
+		strings.Contains(upperC, "ROLLBACK TRANSACTION") {
 
-    return err
+		return errors.New("transactions not supported.")
+	}
+	// doesn't deal with user-defined functions as enabled in
+	// SQLite C interface.
+
+	return err
 }
 
-func Process(command string) (string, error) {
-    err := Filter(command)
-    if err != nil {
-        return "", err
-    }
+func Format(commandString string, sanitize bool) ([]string, error) {
 
-    // TODO: (sternhenri) will need to use regexp.Split in order to not split strings containing ;
-    var buf bytes.Buffer
-    comms := strings.Split(command, ";")
-    comms = comms[:len(comms) - 1]
-    for _, com := range comms {
-        if (len(com) > 1 && com[:1] == ".") {
-            return "", errors.New("sqlite3 .* syntax not supported.")
-        }
+	// TODO: (sternhenri) will need to use regexp.Split in order to not split strings containing ;
+	commands := strings.Split(commandString, ";")
 
-        commandRequest := pb.ClientCommandRequest {}
-        if CommandIsRO(com) == true {
-            commandRequest.Query = com
-        } else {
-            commandRequest.Command = com
-        }
+	if sanitize {
+		for _, comm := range commands {
+			err := Sanitize(comm)
+			if err != nil {
+				return make([]string, 0), err
+			}
+		}
+	}
+	return commands, nil
+}
 
-        var result* pb.ClientCommandResponse
+func Execute(commands []string) (string, error) {
+	var buf bytes.Buffer
+	commands = commands[:len(commands)-1]
+	for _, command := range commands {
 
-        // 5 reconn attempts if leader failure
-        attempts := 5
-        for i := 1; i <= attempts; i++ {
+		commandRequest := pb.ClientCommandRequest{}
+		if CommandIsRO(command) == true {
+			commandRequest.Query = command
+		} else {
+			commandRequest.Command = command
+		}
 
-            result, err = raftServer.ClientCommand(context.Background(), &commandRequest)
-            if err != nil {
-                util.Log(util.ERROR, "Error sending command to node %v err: %v", raftServer, err)
-                return "", err
-            }
+		var result *pb.ClientCommandResponse
+        var err error
 
-            if result.ResponseStatus == uint32(codes.FailedPrecondition) {
-                util.Log(util.WARN, "Reconnecting with new leader: %v (%v/%v)", result.NewLeaderId, i + 1, attempts)
-                Connect(result.NewLeaderId)
-                continue
-            }
+		// 5 reconn attempts if leader failure
+		attempts := 5
+		for i := 1; i <= attempts; i++ {
 
-            if result.ResponseStatus == uint32(codes.OK) {
-                break
-            }
-        }
+			result, err = raftServer.ClientCommand(context.Background(), &commandRequest)
+			if err != nil {
+				util.Log(util.ERROR, "Error sending command to node %v err: %v", raftServer, err)
+				return "", err
+			}
 
-        // TODO: (sternhenri) may want to downgrade log fatals and not just abort if any query fails everywhere in the code
-        if result.ResponseStatus != uint32(codes.OK) {
-            return "", errors.New(result.QueryResponse)
-        }
+			if result.ResponseStatus == uint32(codes.FailedPrecondition) {
+				util.Log(util.WARN, "Reconnecting with new leader: %v (%v/%v)", result.NewLeaderId, i+1, attempts)
+				Connect(result.NewLeaderId)
+				continue
+			}
 
-        if CommandIsRO(com) == true {
-            buf.WriteString(result.QueryResponse)            
-        }
-    }
+			if result.ResponseStatus == uint32(codes.OK) {
+				break
+			}
+		}
 
-    return buf.String(), nil
+		// TODO: (sternhenri) may want to downgrade log fatals and not just abort if any query fails everywhere in the code
+		if result.ResponseStatus != uint32(codes.OK) {
+			return "", errors.New(result.QueryResponse)
+		}
+
+		if CommandIsRO(command) == true {
+			buf.WriteString(result.QueryResponse)
+		}
+	}
+
+	return buf.String(), nil
 }
 
 func Repl() {
-    //handle signals appropriately; not quite like sqlite3
-    c := make(chan os.Signal, 1)
-    signal.Notify(c)
-    go func() {
-        for sig := range c {
-            if sig == os.Interrupt {
-                os.Exit(0)
-            }
-        }
-    }()
+	//handle signals appropriately; not quite like sqlite3
+	c := make(chan os.Signal, 1)
+	signal.Notify(c)
+	go func() {
+		for sig := range c {
+			if sig == os.Interrupt {
+				os.Exit(0)
+			}
+		}
+	}()
 
-    // start with hardcoded server
-    Connect(startingAddress)
+	// start with hardcoded server
+	Connect(startingAddress)
 
-    reader := bufio.NewReader(os.Stdin)
-    var buf bytes.Buffer
-    exit := false
+	reader := bufio.NewReader(os.Stdin)
+	var buf bytes.Buffer
+	exit := false
 
-    for exit != true {
-        fmt.Print("resqlite> ")
-        text, _ := reader.ReadString('\n')
-        text = strings.TrimSpace(text)
+	for exit != true {
+		fmt.Print("resqlite> ")
+		text, _ := reader.ReadString('\n')
+		text = strings.TrimSpace(text)
 
-        if (text == "") {
-            // EOF received (^D)
-            os.Exit(0);
-        }
+		if text == "" {
+			// EOF received (^D)
+			os.Exit(0)
+		}
 
-        if (text == "\n") {
-            continue
-        }
+		if text == "\n" {
+			continue
+		}
 
-        for (text == "" || text[len(text)-1:] != ";") {
-            buf.WriteString(text)
-            fmt.Print("     ...> ")
-            text, _ = reader.ReadString('\n')
-            text = strings.TrimSpace(text)
+		for text == "" || text[len(text)-1:] != ";" {
+			buf.WriteString(text)
+			fmt.Print("     ...> ")
+			text, _ = reader.ReadString('\n')
+			text = strings.TrimSpace(text)
 
-            // imitating sqlite3 behavior
-            if (text == "") {
-                // EOF received (^D)
-                exit = true
-                break
-            }
-        }
-        buf.WriteString(text)
-        output, err := Process(buf.String())
-        if err != nil {
-            fmt.Println(err)
-        } else if output != "" {
-            fmt.Print(output)            
-        }
-        buf.Reset()
-    }
+			// imitating sqlite3 behavior
+			if text == "" {
+				// EOF received (^D)
+				exit = true
+				break
+			}
+		}
+		buf.WriteString(text)
+		commands, err := Format(buf.String(), true)
+		if err != nil {
+			fmt.Println(err)
+		}
+		output, err := Execute(commands)
+		if err != nil {
+			fmt.Println(err)
+		} else if output != "" {
+			fmt.Print(output)
+		}
+		buf.Reset()
+	}
 
-    conn.Close()
+	conn.Close()
 }
 
-// Unfortunately, the Sqlite3 cli forces us to take in the db name at launch,
-// otherwise tracking state would be quite a mess.
-func ParseArgs() string {
-    // dbName = flag.String("database", "", "The database file on which the commands will be run.")
-    // dbLoc = flag.String("location", "../data/", "The relative path to the database file.")
-
-    //  if (dbLoc && dbLoc[len(dbLoc)-1:] != "/") {
-    //     dbLoc += "/"
-    // }
-    
-    // flag.Parse()
-
-    args := os.Args
-    if len(args) < 0 {
-        panic("Please provide a path to your db file.")
+func Batch(batchedCommands string) {
+    fmt.Println(batchedCommands)
+	commands, _ := Format(batchedCommands, false)
+	_, err := Execute(commands)
+    if (err != nil) {
+        fmt.Println(err)
+    } else {
+        fmt.Println("Success")
     }
+}
 
-    return args[1]
+func ParseFlags() {
+
+	flag.StringVar(&cmdFile, "batch", "", "Relative path to a command file to run in batch mode.")
+	flag.BoolVar(&interactive, "interactive", false, "whether batch mode should trnasition to interactive mode.")
+	flag.Parse()
 }
 
 func main() {
-    // db := ParseArgs()
-    Repl()
+	ParseFlags()
+	if cmdFile != "" {
+
+		content, err := ioutil.ReadFile(cmdFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		Batch(string(content))
+
+		if !interactive {
+			os.Exit(0)
+		}
+	}
+	Repl()
 }
