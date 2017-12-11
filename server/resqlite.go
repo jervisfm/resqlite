@@ -1,8 +1,9 @@
 package server
 
 import (
-    // pb "github.com/jervisfm/resqlite/proto/resqlite"
+    pb "github.com/jervisfm/resqlite/proto/raft"
     "os/exec"
+    "fmt"
 )
 
 const (
@@ -28,13 +29,8 @@ func ParseCommand(query string) bool {
 func ExecCommand(query string) (string, error) {
     
     readOnly := ParseCommand(query)
-    var out []byte
-    var err error
 
-    if readOnly {
-        // execute locally
-        out, err = exec.Command("sh", "-c", db + " \"" + query + "\"").Output()
-    }
+    // .ClientCommand()
 
     return string(out), err
 }

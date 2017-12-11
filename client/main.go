@@ -56,6 +56,10 @@ func Process(command string) string{
     var buf bytes.Buffer
     comms := strings.Split(command, ";")
     for _, com := range comms {
+        if (len(com) > 1 && text[:1] == ".") {
+            return "sqlite3 .* syntax not supported."
+        }
+
         output, err := rsql.ExecCommand(com)
         if err != nil {
             return err.Error()
@@ -106,10 +110,6 @@ func Repl() {
                 exit = true
                 break
             }
-            if (text[:1] != ".") {
-                break
-            }
-
         }
         buf.WriteString(strings.TrimSpace(text))
         output := Process(buf.String())

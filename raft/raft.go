@@ -396,7 +396,7 @@ func DeletePersistentLogEntryInclusiveLocked(startDeleteLogIndex int64) {
 }
 
 
-func IncrementPersistenCurrentTerm() {
+func IncrementPersistentCurrentTerm() {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
