@@ -1685,7 +1685,7 @@ func GetNextIndexForServerAt(serverIndex int) int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
-	util.Log(util.INFO, "Get next index, serverIdex:%v nextIndex Len: %v", serverIndex, len(raftServer.raftState.volatileLeaderState.nextIndex))
+	util.Log(util.EXTRA_VERBOSE, "Get next index, serverIdex:%v nextIndex Len: %v", serverIndex, len(raftServer.raftState.volatileLeaderState.nextIndex))
 	return raftServer.raftState.volatileLeaderState.nextIndex[serverIndex]
 }
 
