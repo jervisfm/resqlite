@@ -120,7 +120,6 @@ type RaftClientCommandRpcEvent struct {
 // Contains all the inmemory state needed by the Raft algorithm
 type RaftState struct {
 
-	// TODO(jmuindi): Add support for real persistent state; perhaps we can use a sqlite db underneath?
 	persistentState     RaftPersistentState
 	volatileState       RaftVolatileState
 	volatileLeaderState RaftLeaderState
@@ -160,7 +159,6 @@ type RaftConfig struct {
 }
 
 // Raft Persistent State accessors / getters / functions.
-// TODO(jmuindi): Make the persistent set* actually write to disk.
 func GetPersistentVotedFor() string {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
