@@ -1957,6 +1957,9 @@ func GetLeaderPreviousLogTerm() int64 {
 	// method is called, the previous entry is the one before that.
 	raftLog := raftServer.raftState.persistentState.log
 	lastEntryIndex := len(raftLog)-1
+	if lastEntryIndex <= 0 {
+		return 0
+	}
 	previousEntryIndex := lastEntryIndex - 1
 	previousEntry := raftLog[previousEntryIndex]
 	return previousEntry.LogEntry.Term
