@@ -796,7 +796,11 @@ func LoadPersistentLog() {
 	}
 }
 
-
+// Moves the commit index forward from the current value to the given index.
+// Note: newIndex should be the log index value which is 1-based.
+func MoveCommitIndexTo(newIndex int64) {
+	// TODO(jmuindi): Implement to apply effect of raft log statements to state machine.
+}
 
 func GetLastHeartbeatTimeMillis() int64 {
 	raftServer.lock.Lock()
@@ -1049,13 +1053,24 @@ func handleClientMutateCommand(event *RaftClientCommandRpcEvent) {
 // Applies the command to the local state machine. For us this, this is to apply the
 // sql command.
 func ApplyCommandToStateMachine(event *RaftClientCommandRpcEvent) {
-	util.Log(util.INFO, "(Unimplemented) Update State machine with command: %v", event.request.Command)
+	util.Log(util.INFO, "Update State machine with command: %v", event.request.Command)
 	ApplySqlCommand(event.request.Command)
 }
 
 func ApplySqlCommand(sqlCommand string) {
-	// TODO(jmuindi): implement.
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	ApplySqlCommandLocked(sqlCommand)
 }
+
+func ApplySqlCommandLocked(sqlCommand string) {
+	_, err := raftServer.sqlDb.Exec(sqlCommand)
+	if err != nil {
+		util.Log(util.WARN, "Sql application execution warning: %v", err)
+	}
+}
+
 
 // sql database which is the state machine for this node.
 func GetSqliteReplicatedStateMachineOpenPath() string {
