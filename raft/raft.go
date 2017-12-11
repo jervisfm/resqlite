@@ -1758,7 +1758,8 @@ func LeaderLoop() {
 	}
 }
 
-
+// Sends any append entries replication rpc needed to all followers to get their
+// state to match ours.
 func SendAppendEntriesReplicationRpcToFollowers() {
 	// TODO: implement
 	otherNodes := GetOtherNodes()
@@ -1767,24 +1768,22 @@ func SendAppendEntriesReplicationRpcToFollowers() {
 	var waitGroup sync.WaitGroup
 	waitGroup.Add(len(otherNodes))
 
-	numOtherNodeSuccessRpcs := int32(0)
-	leaderLastLogIndex := GetLastLogIndex()
 	for i, node := range otherNodes {
 		// Pass a copy of node to avoid a race condition.
 		go func(i int, node pb.RaftClient) {
 			defer waitGroup.Done()
-			// TODO: continue
-			// SendAppendEntriesReplicationRpcForFollower(event.request, node)
-			success := false
-			if success {
-				atomic.AddInt32(&numOtherNodeSuccessRpcs, 1)
-				SetMatchIndexForServerAt(i, leaderLastLogIndex)
-				SetNextIndexForServerAt(i, leaderLastLogIndex + 1)
-			}
+			SendAppendEntriesReplicationRpcForFollower(i, node)
+
 		}(i, node)
 	}
 
 	waitGroup.Wait()
+
+}
+
+// If needed, sends append entries rpc to given "client" follower to make their logs match ours.
+func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftClient) {
+	// TODO: implement.
 
 }
 
