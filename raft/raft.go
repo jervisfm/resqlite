@@ -1636,11 +1636,19 @@ func GetLeaderPreviousLogTerm() int64 {
 	return 0
 }
 
-// PrevLogIndex value  used in the appendentries rpc request.
+// PrevLogIndex value  used in the appendentries rpc request. Should be called _after_ local log
+// already updated.
 func GetLeaderPreviousLogIndex() int64 {
-	// TODO: implement
-	return 0
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
 
+	// Because we would have just stored a new entry to our local log, when this
+	// method is called, the previous entry is the one before that.
+	raftLog := raftServer.raftState.persistentState.log
+	lastEntryIndex := len(raftLog)-1
+	previousEntryIndex := lastEntryIndex - 1
+	previousEntry := raftLog[previousEntryIndex]
+	return previousEntry.LogIndex
 }
 
 // Leader commit value used in the appendentries rpc request.
