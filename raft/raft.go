@@ -1373,12 +1373,13 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 
     raftLog := GetPersistentRaftLog()
     // Note: log index is 1-based, and so is prevLogIndex.
-    containsEntryAtPrevLogIndex := prevLogIndex > 0 && int64(len(raftLog))>= prevLogIndex
+	util.Log(util.INFO, "Have len raftLog: %v. prevLogIndex: %v log: %v", len(raftLog), prevLogIndex, raftLog)
+	containsEntryAtPrevLogIndex := prevLogIndex > 0 && int64(len(raftLog)) >= prevLogIndex // prevLogIndex <= len(raftLog)
 	if !containsEntryAtPrevLogIndex {
-		util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
-		result.Success = false
-		event.responseChan<- result
-		return
+			util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
+			result.Success = false
+			event.responseChan<- result
+			return
 	}
 	// So, we have an entry at that position. Confirm that the terms match.
 	// We want to reply false if the terms do not match at that position.
