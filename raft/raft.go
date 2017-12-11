@@ -1822,6 +1822,14 @@ func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftC
 
 	request.Entries = append(request.Entries, logEntryToSend.LogEntry)
 
+	result, err := client.AppendEntries(context.Background(), &request)
+	if err != nil {
+		util.Log(util.ERROR, "Error issuing append entry to get followers to match our state. note: %v, err: %v", client, err)
+	}
+	if result.ResponseStatus != uint32(codes.OK) {
+		util.Log(util.ERROR, "Error response issuing append entry to get followers to match our state. note: %v, err: %v", client, err)
+	}
+
 
 
 
