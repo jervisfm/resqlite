@@ -1479,6 +1479,9 @@ func GetLastLogTerm() int64 {
 
 func GetLastLogTermLocked() int64 {
 	raftLog := raftServer.raftState.persistentState.log
+	if len(raftLog) <= 0 {
+		return 0
+	}
 	lastItem := raftLog[len(raftLog) - 1]
 
 	return lastItem.LogEntry.Term
