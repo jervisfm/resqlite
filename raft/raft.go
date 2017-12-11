@@ -171,6 +171,14 @@ func GetPersistentRaftLog() []pb.DiskLogEntry {
 	return raftServer.raftState.persistentState.log
 }
 
+func GetPersistentRaftLogEntryAt(index int64) pb.DiskLogEntry {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	return raftServer.raftState.persistentState.log[index]
+}
+
+
+
 func GetPersistentVotedFor() string {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
@@ -1234,14 +1242,15 @@ func IssueAppendEntriesRpcToNode(request pb.ClientCommandRequest, client pb.Raft
 		util.Log(util.ERROR, "Error issuing append entry to node: %v response code:%v", client, result.ResponseStatus)
 		return false
 	}
-	util.Log(util.INFO, "AppendEntry Response from node: %v response: %v", client, *result)
 
+	util.Log(util.INFO, "AppendEntry Response from node: %v response: %v", client, *result)
 	if result.Term > RaftCurrentTerm() {
 		ChangeToFollowerIfTermStale(result.Term)
 		return false
-	} else {
-		return true
 	}
+
+	// Return result of whether node accepted new log entry.
+	return result.Success
 }
 
 
@@ -1681,6 +1690,14 @@ func SetNextIndexForServerAt(serverIndex int, newValue int64)  {
 	raftServer.raftState.volatileLeaderState.nextIndex[serverIndex] = newValue
 }
 
+func DecrementNextIndexForServerAt(serverIndex int) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	raftServer.raftState.volatileLeaderState.nextIndex[serverIndex] -= 1
+}
+
+
 func GetMatchIndexForServerAt(serverIndex int) int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
@@ -1764,7 +1781,8 @@ func LeaderLoop() {
 	}
 }
 
-
+// Sends any append entries replication rpc needed to all followers to get their
+// state to match ours.
 func SendAppendEntriesReplicationRpcToFollowers() {
 	// TODO: implement
 	otherNodes := GetOtherNodes()
@@ -1773,26 +1791,74 @@ func SendAppendEntriesReplicationRpcToFollowers() {
 	var waitGroup sync.WaitGroup
 	waitGroup.Add(len(otherNodes))
 
-	numOtherNodeSuccessRpcs := int32(0)
-	leaderLastLogIndex := GetLastLogIndex()
 	for i, node := range otherNodes {
 		// Pass a copy of node to avoid a race condition.
 		go func(i int, node pb.RaftClient) {
 			defer waitGroup.Done()
-			// TODO: continue
-			// SendAppendEntriesReplicationRpcForFollower(event.request, node)
-			success := false
-			if success {
-				atomic.AddInt32(&numOtherNodeSuccessRpcs, 1)
-				SetMatchIndexForServerAt(i, leaderLastLogIndex)
-				SetNextIndexForServerAt(i, leaderLastLogIndex + 1)
-			}
+			SendAppendEntriesReplicationRpcForFollower(i, node)
+
 		}(i, node)
 	}
 
 	waitGroup.Wait()
 
 }
+
+// If needed, sends append entries rpc to given "client" follower to make their logs match ours.
+func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftClient) {
+	if !IsLeader() {
+		return
+	}
+
+	lastLogIndex := GetLastLogIndex()
+	nextIndex := GetNextIndexForServerAt(serverIndex)
+
+	if lastLogIndex < nextIndex {
+		// Nothing to do for this follower - it's already up to date.
+		return
+	}
+
+	// Otherwise, We need to send append entry rpc with log entries starting
+	// at nextIndex. For now, just send one at a time.
+	// TODO(jmuindi): Consider batching the rpcs for improved efficiency.
+	nextIndexZeroBased := nextIndex - 1
+	logEntryToSend := GetPersistentRaftLogEntryAt(nextIndexZeroBased)
+	priorLogEntry :=  GetPersistentRaftLogEntryAt(nextIndexZeroBased - 1)
+
+
+	currentTerm := RaftCurrentTerm()
+	request := pb.AppendEntriesRequest{}
+	request.Term = currentTerm
+	request.LeaderId = GetLocalNodeId()
+	request.PrevLogIndex = priorLogEntry.LogIndex
+	request.PrevLogTerm = priorLogEntry.LogEntry.Term
+	request.LeaderCommit = GetCommitIndex()
+
+	request.Entries = append(request.Entries, logEntryToSend.LogEntry)
+
+	result, err := client.AppendEntries(context.Background(), &request)
+	if err != nil {
+		util.Log(util.ERROR, "Error issuing append entry to get followers to match our state. note: %v, err: %v", client, err)
+	}
+	if result.ResponseStatus != uint32(codes.OK) {
+		util.Log(util.ERROR, "Error response issuing append entry to get followers to match our state. note: %v, err: %v", client, err)
+	}
+	if result.Term > currentTerm {
+		ChangeToFollowerIfTermStale(result.Term)
+		return
+	}
+
+	if result.Success {
+		// We can update nextIndex and matchIndex for the follower.
+		SetNextIndexForServerAt(serverIndex, logEntryToSend.LogIndex + 1)
+		SetMatchIndexForServerAt(serverIndex, logEntryToSend.LogIndex)
+	} else {
+		// RPC failed, so decrement nextIndex. We will try again later automatically
+		// replication attempts are called in a loop.
+		DecrementNextIndexForServerAt(serverIndex)
+	}
+}
+
 
 // Send heart beat rpcs to followers in parallel and waits for them to all complete.
 func SendHeartBeatsToFollowers() {
