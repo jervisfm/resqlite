@@ -1659,7 +1659,7 @@ func ReinitVolatileLeaderState() {
 		return
 	}
 	util.Log(util.INFO, "Reinitialized Leader state")
-	volatileLeaderState := raftServer.raftState.volatileLeaderState
+	volatileLeaderState := &raftServer.raftState.volatileLeaderState
 
 	// Reset match index to 0.
 	numOtherNodes := len(GetOtherNodes())
@@ -1674,6 +1674,7 @@ func ReinitVolatileLeaderState() {
 	for i, _ := range volatileLeaderState.nextIndex {
 		volatileLeaderState.nextIndex[i] = newVal
 	}
+	util.Log(util.INFO, "After init: nextIndex len: %v", len(raftServer.raftState.volatileLeaderState.nextIndex))
 }
 
 
