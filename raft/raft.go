@@ -1175,7 +1175,7 @@ func IssueAppendEntriesRpcToMajorityNodes(event *RaftClientCommandRpcEvent) bool
 	waitGroup.Add(len(otherNodes))
 
 	numOtherNodeSuccessRpcs := int32(0)
-
+    leaderLastLogIndex := GetLastLogIndex()
 	for i, node := range otherNodes {
 		// Pass a copy of node to avoid a race condition.
 		go func(i int, node pb.RaftClient) {
@@ -1183,7 +1183,8 @@ func IssueAppendEntriesRpcToMajorityNodes(event *RaftClientCommandRpcEvent) bool
 			success := IssueAppendEntriesRpcToNode(event.request, node)
 			if success {
 				atomic.AddInt32(&numOtherNodeSuccessRpcs, 1)
-
+				SetMatchIndexForServerAt(i, leaderLastLogIndex)
+				SetNextIndexForServerAt(i, leaderLastLogIndex + 1)
 			}
 		}(i, node)
 	}
