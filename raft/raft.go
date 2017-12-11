@@ -1800,7 +1800,6 @@ func SendAppendEntriesReplicationRpcToFollowers() {
 
 // If needed, sends append entries rpc to given "client" follower to make their logs match ours.
 func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftClient) {
-	// TODO: implement.
 	if !IsLeader() {
 		return
 	}
