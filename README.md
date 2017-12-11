@@ -168,7 +168,7 @@ We chose four tests to run our benchmarking on:
     data/benchmarks/wOnly.db       ~15,000 consecutive writes
     data/benchmarks/rOnly.db       ~15,000 consecutive reads
     data/benchmarks/wHeavy.db      ~1,500 writes, 200 reads, repeated 3 times.
-    data/benchmarks/rHeavy.db      200 writes, ~1,500 reads, repeated 4 times.
+    data/benchmarks/rHeavy.db      200 writes, ~1,500 reads, repeated 3 times.
 
 Running these tests on a single-node cluster (taking median of 3 runs), we find:
 
