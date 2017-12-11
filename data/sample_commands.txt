@@ -1,0 +1,6 @@
+select * from artists;
+
+select composer, count(*) as tracksCount from tracks group by AlbumId LIMIT 3;
+select Name from artists where ArtistId=(select artistId from albums where AlbumId=1);
+select GenreId, count(*) from tracks group by GenreId Limit 1;
+select Name from genres where GenreId=1;
