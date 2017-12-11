@@ -1840,7 +1840,7 @@ func GetLastApplied() int64  {
 	return raftServer.raftState.volatileState.lastApplied
 }
 
-func SetLastApplied(newValue int64) int64 {
+func SetLastApplied(newValue int64)  {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
