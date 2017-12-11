@@ -1025,6 +1025,50 @@ func handleClientQueryCommand(event *RaftClientCommandRpcEvent) {
 
 	result := pb.ClientCommandResponse{}
 
+	rows, err := raftServer.sqlDb.Query(sqlQuery)
+	if err != nil {
+		util.Log(util.WARN, "Sql query error: %v", err)
+		result.ResponseStatus = uint32(codes.Aborted)
+		event.responseChan <- result
+		return
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		util.Log(util.WARN, "Sql cols query error: %v", err)
+		result.ResponseStatus = uint32(codes.Aborted)
+		event.responseChan <- result
+		return
+	}
+
+	columnData := make([]string, len(columns))
+	rawData := make([][]byte , len(columns))
+	tempData := make([]interface{}, len(columns))
+	for i, _ := range rawData {
+		tempData[i] = &rawData[i]
+	}
+
+	for rows.Next() {
+		err = rows.Scan(rawData...)
+		if err != nil {
+			util.Log(util.WARN, "Sql query error. Partial data return: %v", err)
+			continue
+		}
+
+		for i, val := range rawData {
+			if val == nil {
+				columnData[i] = ""
+			} else {
+				columnData[i] = string(val)
+			}
+		}
+	}
+
+	// Combine column data into one string.
+	queryResult := strings.Join(columnData, " | ")
+	result.QueryResponse = queryResult
+
 	result.ResponseStatus = uint32(codes.OK)
 	event.responseChan <- result
 
