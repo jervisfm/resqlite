@@ -1236,14 +1236,15 @@ func IssueAppendEntriesRpcToNode(request pb.ClientCommandRequest, client pb.Raft
 		util.Log(util.ERROR, "Error issuing append entry to node: %v response code:%v", client, result.ResponseStatus)
 		return false
 	}
-	util.Log(util.INFO, "AppendEntry Response from node: %v response: %v", client, *result)
 
+	util.Log(util.INFO, "AppendEntry Response from node: %v response: %v", client, *result)
 	if result.Term > RaftCurrentTerm() {
 		ChangeToFollowerIfTermStale(result.Term)
 		return false
-	} else {
-		return true
-	}
+	} 
+
+	// Return result of whether node accepted new log entry.
+	return result.Success
 }
 
 
