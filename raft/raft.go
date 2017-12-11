@@ -26,6 +26,7 @@ import (
 	"strings"
 	"github.com/golang/protobuf/proto"
 	"strconv"
+	"fmt"
 )
 
 const (
@@ -1313,8 +1314,21 @@ func IncrementVoteCount() {
 
 // Returns the index of the last entry in the raft log. Index is 1-based.
 func GetLastLogIndex() int64 {
-	// TODO(jmuindi): Implement once we have raft log up.
-	return 0
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return GetLastLogIndexLocked()
+}
+
+func GetLastLogIndexLocked() int64 {
+	raftLog := raftServer.raftState.persistentState.log
+	lastItem := raftLog[len(raftLog) - 1]
+
+	if lastItem.LogIndex != int64(len(raftLog)) {
+		// TODO: Remove this sanity check ...
+		log.Fatalf("Mismatch between stored log index value and # of entries. Last stored log index: %v num entries: %v ", lastItem.LogIndex, len(raftLog))
+	}
+	return lastItem.LogIndex
 }
 
 // Returns the term for the last entry in the raft log.
