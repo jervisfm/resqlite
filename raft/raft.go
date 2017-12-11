@@ -1684,6 +1684,14 @@ func SetNextIndexForServerAt(serverIndex int, newValue int64)  {
 	raftServer.raftState.volatileLeaderState.nextIndex[serverIndex] = newValue
 }
 
+func DecrementNextIndexForServerAt(serverIndex int) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	raftServer.raftState.volatileLeaderState.nextIndex[serverIndex] -= 1
+}
+
+
 func GetMatchIndexForServerAt(serverIndex int) int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
@@ -1836,10 +1844,16 @@ func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftC
 	}
 
 	if result.Success {
-
+		// We can update nextIndex and matchIndex for the follower.
+		SetNextIndexForServerAt(serverIndex, logEntryToSend.LogIndex + 1)
+		SetMatchIndexForServerAt(serverIndex, logEntryToSend.LogIndex)
+	} else {
+		// RPC failed, so decrement nextIndex. We will try again later automatically
+		// replication attempts are called in a loop.
+		DecrementNextIndexForServerAt(serverIndex)
 	}
-
 }
+
 
 // Send heart beat rpcs to followers in parallel and waits for them to all complete.
 func SendHeartBeatsToFollowers() {
