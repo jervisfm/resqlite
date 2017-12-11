@@ -164,6 +164,12 @@ type RaftConfig struct {
 }
 
 // Raft Persistent State accessors / getters / functions.
+func GetPersistentRaftLog() []pb.DiskLogEntry {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	return raftServer.raftState.persistentState.log
+}
+
 func GetPersistentVotedFor() string {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
@@ -1308,8 +1314,38 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		handleHeartBeatRpc(event)
 		return
 	}
+
 	// Otherwise process regular append entries rpc (receiver impl).
 	// TODO(jmuindi): Implement
+	result:= pb.AppendEntriesResponse{}
+	result.Term = currentTerm
+	result.ResponseStatus = uint32(codes.OK)
+
+    // Want to reply false if log does not contain entry at prevLogIndex
+    // whose term matches prevLogTerm.
+    prevLogIndex := event.request.PrevLogIndex
+    prevLogTerm := event.request.PrevLogTerm
+
+    raftLog := GetPersistentRaftLog()
+    // Note: log index is 1-based, and so is prevLogIndex.
+    containsEntryAtPrevLogIndex := len(raftLog) >= prevLogIndex
+	if !containsEntryAtPrevLogIndex {
+		util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
+		result.Success = false
+		event.responseChan<- result
+		return
+	}
+	// So, we have an entry at that position. Confirm that the terms match.
+	// We want to reply false if the terms do not match at that position.
+	ourLogEntry := raftLog[prevLogIndex-1]  // -1 because log index is 1-based.
+	entryTermsMatch := ourLogEntry.LogEntry.Term == prevLogTerm
+	if !entryTermsMatch {
+		util.Log(util.INFO, "Rejecting append entries rpc because log terms don't match. Ours: %v, theirs: %v", ourLogEntry.LogEntry.Term, prevLogTerm )
+		result.Success = false
+		event.responseChan<- result
+		return
+	}
+
 
 
 }
