@@ -8,11 +8,13 @@ import (
     "bytes"
     "strings"
     "errors"
+    // "flag"
+    // "regexp"
+
+    rsql "github.com/jervisfm/resqlite/server"
 )
 
-
-
-func filter(command string) error {
+func Filter(command string) error {
     var err error
 
     command = strings.Replace(command, "\n", "", -1)
@@ -43,20 +45,28 @@ func filter(command string) error {
     return err
 }
 
-func process(command string) string{
+func Process(command string) string{
     fmt.Print("got %s", command)
-    err := filter(command)
+    err := Filter(command)
     if err != nil {
         return err.Error()
     }
 
-    // TODO(sternhenri): send to master for processing
+    // TODO: (sternhenri) will need to use regexp.Split in order to not split strings containing ;
+    var buf bytes.Buffer
+    comms := strings.Split(command, ";")
+    for _, com := range comms {
+        output, err := rsql.ExecCommand(com)
+        if err != nil {
+            return err.Error()
+        }
+        buf.WriteString(output)
+    }
 
-
-    return "ok"
+    return buf.String()
 }
 
-func repl() {
+func Repl() {
     //handle signals appropriately; not quite like sqlite3
     c := make(chan os.Signal, 1)
     signal.Notify(c)
@@ -96,14 +106,40 @@ func repl() {
                 exit = true
                 break
             }
+            if (text[:1] != ".") {
+                break
+            }
+
         }
-        buf.WriteString(text)
-        output := process(buf.String())
+        buf.WriteString(strings.TrimSpace(text))
+        output := Process(buf.String())
         fmt.Println(output)
         buf.Reset()
     }
 }
 
+// Unfortunately, the Sqlite3 cli forces us to take in the db name at launch,
+// otherwise tracking state would be quite a mess.
+func ParseArgs() string {
+    // dbName = flag.String("database", "", "The database file on which the commands will be run.")
+    // dbLoc = flag.String("location", "../data/", "The relative path to the database file.")
+
+    //  if (dbLoc && dbLoc[len(dbLoc)-1:] != "/") {
+    //     dbLoc += "/"
+    // }
+    
+    // flag.Parse()
+
+    args := os.Args
+    if len(args) < 0 {
+        panic("Please provide a path to your db file.")
+    }
+
+    return args[1]
+}
+
 func main() {
-    repl()
+    db := ParseArgs()
+    rsql.CacheDb(db)
+    Repl()
 }

@@ -14,10 +14,13 @@ service ReSqlite {
 }
 
 message SqlCommandRequest {
-  // TODO(jmuindi): Fill this out.
+  // Query
+  string dbName = 1;
+  string query = 2;
 }
 
 
 message SqlCommandResponse {
-  // TODO(jmuindi): Fill this out.
+  // Response
+  string response = 1;
 }
