@@ -8,11 +8,49 @@ import (
     "bytes"
     "strings"
     "errors"
-    // "flag"
     // "regexp"
+    "google.golang.org/grpc"
+    "golang.org/x/net/context"
 
-    rsql "github.com/jervisfm/resqlite/server"
+    pb "github.com/jervisfm/resqlite/proto/raft"
+    raft "github.com/jervisfm/resqlite/raft"
 )
+
+const (
+    modifier = "SELECT "
+    startingAddress = "localhost:50050"
+)
+
+var raftServer pb.RaftClient
+var conn grpc.ClientConn
+
+// Parse command to determine whether it is RO or making changes
+func CommandIsRO(query string) bool {
+    // input trimmed at client
+    if (len(query) >= len(modifier) && query[:len(modifier)] == modifier) {
+        return false;
+    }
+    return true;
+}
+
+func Connect(addr string) () {
+    
+
+    if addr == nil {
+        addr = startingAddress
+    }
+
+    // dial leader
+    conn, err = grpc.Dial(addr, grpc.WithInsecure())
+    if err != nil {
+        log.Fatalf("did not connect: %v", err)
+        os.Exit(1)
+    }
+
+    raftServer = pb.NewRaftClient(conn)
+}
+
+// ====
 
 func Filter(command string) error {
     var err error
@@ -45,7 +83,7 @@ func Filter(command string) error {
     return err
 }
 
-func Process(command string) string{
+func Process(command string) (string, error) {
     fmt.Print("got %s", command)
     err := Filter(command)
     if err != nil {
@@ -60,11 +98,39 @@ func Process(command string) string{
             return "sqlite3 .* syntax not supported."
         }
 
-        output, err := rsql.ExecCommand(com)
-        if err != nil {
-            return err.Error()
+        commandRequest := pb.CommandRequest {}
+        if CommandIsRO(com) == true {
+            commandRequest.query = com
+        } else {
+            commandRequest.command = com
         }
-        buf.WriteString(output)
+
+        // 5 reconn attempts if leader failure
+        attempts := 5
+        for i := range attempts {
+
+            result, err := raftServer.ClientCommand(context.Background, &commandRequest)
+            if err != nil {
+                util.Log(util.ERROR, "Error sending command to node %v err: %v", raftServer, err)
+                return _, err
+            }
+
+            if result.ResponseStatus == uint32(codes.FailedPrecodintion) {
+                util.Log(util.WARN, "Reconnecting with new leader: %v (%v/%v)", result.NewLeaderId, i + 1, attempts)
+                Connect(result.NewLeaderId)
+                continue
+            }
+        }
+
+        // TODO: (sternhenri) may want to downgrade log fatals and not just abort if any query fails everywhere in the code
+        if result.ResponseStatus != uint32(codes.OK) {
+            util.Log(util.ERROR, "Error with command: %v\n to node: %v\n response code:%v", com, raftServer, result.ResponseStatus)
+            return _, _
+        }
+
+        if CommandIsRO(com) == true {
+            buf.WriteString(result.QueryResponse)            
+        }
     }
 
     return buf.String()
@@ -81,6 +147,9 @@ func Repl() {
             }
         }
     }()
+
+    // start with hardcoded server
+    Connect()
 
     reader := bufio.NewReader(os.Stdin)
     var buf bytes.Buffer
@@ -112,10 +181,12 @@ func Repl() {
             }
         }
         buf.WriteString(strings.TrimSpace(text))
-        output := Process(buf.String())
+        output, err := Process(buf.String())
         fmt.Println(output)
         buf.Reset()
     }
+
+    conn.Close()
 }
 
 // Unfortunately, the Sqlite3 cli forces us to take in the db name at launch,
