@@ -1685,7 +1685,7 @@ func GetNextIndexForServerAt(serverIndex int) int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
-	util.Log(util.INFO, "Get next index, serverIdex:%v nextIndex Len: %v", serverIndex, len(raftServer.raftState.volatileLeaderState.nextIndex))
+	util.Log(util.EXTRA_VERBOSE, "Get next index, serverIdex:%v nextIndex Len: %v", serverIndex, len(raftServer.raftState.volatileLeaderState.nextIndex))
 	return raftServer.raftState.volatileLeaderState.nextIndex[serverIndex]
 }
 
@@ -1860,6 +1860,12 @@ func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftC
 	// TODO(jmuindi): Consider batching the rpcs for improved efficiency.
 	request := pb.AppendEntriesRequest{}
 	nextIndexZeroBased := nextIndex - 1
+
+	if nextIndexZeroBased < 0 || nextIndexZeroBased >= int64(len(GetPersistentRaftLog())) {
+		// TODO: See if we can avoid hack fix:
+		util.Log(util.WARN, "nextIndexZeroBased is out of range: %v", nextIndexZeroBased)
+		return
+	}
 	logEntryToSend := GetPersistentRaftLogEntryAt(nextIndexZeroBased)
 	if nextIndexZeroBased >= 1 {
 		priorLogEntry := GetPersistentRaftLogEntryAt(nextIndexZeroBased - 1)
@@ -1939,7 +1945,7 @@ func SendHeartBeatRpc(node pb.RaftClient) {
 		util.Log(util.ERROR, "Error sending hearbeat to node: %v Error: %v", node, err)
 		return
 	}
-	util.Log(util.INFO, "Heartbeat RPC Response from node: %v Response: %v", node, *result)
+	util.Log(util.VERBOSE, "Heartbeat RPC Response from node: %v Response: %v", node, *result)
 }
 
 // PrevLogTerm value  used in the appendentries rpc request. Should be called _after_ local local updated.
@@ -1951,6 +1957,9 @@ func GetLeaderPreviousLogTerm() int64 {
 	// method is called, the previous entry is the one before that.
 	raftLog := raftServer.raftState.persistentState.log
 	lastEntryIndex := len(raftLog)-1
+	if lastEntryIndex <= 0 {
+		return 0
+	}
 	previousEntryIndex := lastEntryIndex - 1
 	previousEntry := raftLog[previousEntryIndex]
 	return previousEntry.LogEntry.Term
