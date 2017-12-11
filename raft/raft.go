@@ -1238,10 +1238,24 @@ func handleRequestVoteRpc(event *RaftRequestVoteRpcEvent) {
 	} else if AlreadyVoted() {
 		result.VoteGranted = false
 	} else {
-		// TODO(jmuindi): Only grant vote if candidate log at least uptodate
+		// Only grant vote if candidate log at least uptodate
 		// as receivers (Section 5.2; 5.4)
-		util.Log(util.INFO,  "Grant vote to other server at term: %v", currentTerm)
-		result.VoteGranted = true
+		if GetLastLogTerm() > event.request.LastLogTerm {
+			// Node is more up to date, deny vote.
+			result.VoteGranted = false
+		} else if GetLastLogTerm() < event.request.LastLogTerm {
+			// Their term is more current, grant vote
+			result.VoteGranted = true
+		} else {
+			// Terms match. Let's check log index to see who has longer log history.
+			if (GetLastLogIndex() > event.request.LastLogIndex) {
+				// Node is more current, deny vote
+				result.VoteGranted = false
+			} else {
+				result.VoteGranted = true
+			}
+		}
+		util.Log(util.INFO,  "Grant vote to other server (%v) at term: %v ? %v", event.request.CandidateId, currentTerm, result.VoteGranted)
 	}
 	result.ResponseStatus = uint32(codes.OK)
 	event.responseChan<- result
