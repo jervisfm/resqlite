@@ -1617,9 +1617,9 @@ func SendHeartBeatRpc(node pb.RaftClient) {
 	request.Term = RaftCurrentTerm()
 	request.LeaderId = GetLocalNodeId()
 	request.LeaderCommit = GetLeaderCommit()
-	request.PrevLogIndex = GetLeaderPreviousLogIndex()
-	request.PrevLogTerm = GetLeaderPreviousLogTerm()
-	// Log entries are empty/nil for heartbeat rpcs.
+
+	// Log entries are empty/nil for heartbeat rpcs, so no need to
+	// set previous log index, previous log term.
 	request.Entries = nil
 
 	result, err := node.AppendEntries(context.Background(), &request)
