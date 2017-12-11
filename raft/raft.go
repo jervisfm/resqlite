@@ -1130,9 +1130,11 @@ func handleClientMutateCommand(event *RaftClientCommandRpcEvent) {
 	appendCommandToLocalLog(event)
 	replicationSuccess := IssueAppendEntriesRpcToMajorityNodes(event)
 	if replicationSuccess {
+		util.Log(util.INFO, "Command replicated successfully")
 		result.ResponseStatus = uint32(codes.OK)
 		ApplyCommandToStateMachine(event)
 	} else {
+		util.Log(util.ERROR, "Failed to replicate command")
 		result.ResponseStatus = uint32(codes.Aborted)
 	}
 	event.responseChan <- result
