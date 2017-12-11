@@ -1945,7 +1945,7 @@ func SendHeartBeatRpc(node pb.RaftClient) {
 		util.Log(util.ERROR, "Error sending hearbeat to node: %v Error: %v", node, err)
 		return
 	}
-	util.Log(util.INFO, "Heartbeat RPC Response from node: %v Response: %v", node, *result)
+	util.Log(util.VERBOSE, "Heartbeat RPC Response from node: %v Response: %v", node, *result)
 }
 
 // PrevLogTerm value  used in the appendentries rpc request. Should be called _after_ local local updated.
