@@ -1317,6 +1317,10 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 
 	// Otherwise process regular append entries rpc (receiver impl).
 	// TODO(jmuindi): Implement
+	if len(event.request.Entries) > 1 {
+		util.Log(util.WARN, "Server sent more than one log entry in append entries rpc")
+	}
+
 	result:= pb.AppendEntriesResponse{}
 	result.Term = currentTerm
 	result.ResponseStatus = uint32(codes.OK)
@@ -1337,7 +1341,8 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 	}
 	// So, we have an entry at that position. Confirm that the terms match.
 	// We want to reply false if the terms do not match at that position.
-	ourLogEntry := raftLog[prevLogIndex-1]  // -1 because log index is 1-based.
+	prevLogIndexZeroBased := prevLogIndex - 1  // -1 because log index is 1-based.
+	ourLogEntry := raftLog[prevLogIndexZeroBased]
 	entryTermsMatch := ourLogEntry.LogEntry.Term == prevLogTerm
 	if !entryTermsMatch {
 		util.Log(util.INFO, "Rejecting append entries rpc because log terms don't match. Ours: %v, theirs: %v", ourLogEntry.LogEntry.Term, prevLogTerm )
@@ -1346,6 +1351,33 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		return
 	}
 
+	// Delete log entries that conflict with those from leader.
+	newEntry := event.request.Entries[0]
+	newLogIndex := prevLogIndex + 1
+	newLogIndexZeroBased := newLogIndex -1
+	containsEntryAtNewLogIndex := int64(len(raftLog)) >= newLogIndex
+	if containsEntryAtNewLogIndex {
+		// Check whether we have a conflict (terms differ).
+		ourEntry := raftLog[newLogIndexZeroBased]
+		theirEntry := newEntry
+
+		haveConflict := ourEntry.LogEntry.Term != theirEntry.Term
+		if haveConflict {
+			// We must make our logs match the leader. Thus, we need to delete
+			// all our entries starting from the new entry position.
+			DeletePersistentLogEntryInclusive(newLogIndex)
+			AddPersistentLogEntry(*newEntry)
+			result.Success = true
+		} else {
+			// We do not need to add any new entries to our log, because existing
+			// one already matches the leader.
+		}
+	} else {
+		// We need to insert new entry into the log.
+		AddPersistentLogEntry(*newEntry)
+		result.Success = true
+
+	}
 
 
 }
