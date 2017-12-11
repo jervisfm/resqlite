@@ -1332,9 +1332,19 @@ func GetLastLogIndexLocked() int64 {
 
 // Returns the term for the last entry in the raft log.
 func GetLastLogTerm() int64 {
-	// TODO(jmuindi): Implement once we have persistent log entry.
-	return 0
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return GetLastLogTermLocked()
 }
+
+func GetLastLogTermLocked() int64 {
+	raftLog := raftServer.raftState.persistentState.log
+	lastItem := raftLog[len(raftLog) - 1]
+
+	return lastItem.LogEntry.Term
+}
+
 
 // Updates raft current term to a new one.
 func SetRaftCurrentTerm(term int64) {
