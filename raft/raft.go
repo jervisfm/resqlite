@@ -562,7 +562,6 @@ func GetInitialServer() Server {
 		serverState: Follower,
 		raftConfig: RaftConfig{
 			electionTimeoutMillis: PickElectionTimeOutMillis(),
-			// TODO(jmuindi): Consider making this a command line flag.
 			heartBeatIntervalMillis: 10,
 		},
 		events: make(chan Event),
