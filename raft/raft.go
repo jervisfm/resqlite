@@ -1858,17 +1858,23 @@ func SendAppendEntriesReplicationRpcForFollower(serverIndex int, client pb.RaftC
 	// Otherwise, We need to send append entry rpc with log entries starting
 	// at nextIndex. For now, just send one at a time.
 	// TODO(jmuindi): Consider batching the rpcs for improved efficiency.
+	request := pb.AppendEntriesRequest{}
 	nextIndexZeroBased := nextIndex - 1
 	logEntryToSend := GetPersistentRaftLogEntryAt(nextIndexZeroBased)
-	priorLogEntry :=  GetPersistentRaftLogEntryAt(nextIndexZeroBased - 1)
-
+	if nextIndexZeroBased >= 1 {
+		priorLogEntry := GetPersistentRaftLogEntryAt(nextIndexZeroBased - 1)
+		request.PrevLogIndex = priorLogEntry.LogIndex
+		request.PrevLogTerm = priorLogEntry.LogEntry.Term
+	} else {
+		// They don't exist.
+		request.PrevLogIndex = 0
+		request.PrevLogTerm = 0
+	}
 
 	currentTerm := RaftCurrentTerm()
-	request := pb.AppendEntriesRequest{}
 	request.Term = currentTerm
 	request.LeaderId = GetLocalNodeId()
-	request.PrevLogIndex = priorLogEntry.LogIndex
-	request.PrevLogTerm = priorLogEntry.LogEntry.Term
+
 	request.LeaderCommit = GetCommitIndex()
 
 	request.Entries = append(request.Entries, logEntryToSend.LogEntry)
