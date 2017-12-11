@@ -53,6 +53,15 @@ This puts the tool under golang/bin so make sure that's part for your $PATH.
 $ export PATH=$PATH:$GOPATH/bin
 ```
 
+You would also need an implementation of golang sqlite3 drvier. The one we used is go-sqlite3 - https://github.com/mattn/go-sqlite3
+
+Install it like so on OS X:
+```
+$ brew install sqlite3
+$ go get github.com/mattn/go-sqlite3
+$ go install github.com/mattn/go-sqlite3
+```
+
 ### Raft Service
 Our simplify ease of testing, our cluster  would consist of 3 nodes such that we can tolerate any single node failture.
 
@@ -89,9 +98,49 @@ The following is a proposed implementation structure for the project:
 * client/resqlite.go (library)
 * client/main.go (client binary) <- Perhaps this can be replicaed with polyglot (https://github.com/grpc-ecosystem/polyglot#server-reflection)
 
+### Pending Work items:
+Main item left is implementing cluster replication. To get there we need to:
+
+* Add methods to accessing raft persistent state. 
+    - Have it backup to in memory state to start: DONE.
+    - Migrate it later to real durable storage later: DONE
+* Add a method to raft service to receive client command: DONE
+* Add sqlite dependency: DONE
+* Implement AppendEntries receiver.
+* Restore replicated state machine upon server start app.
+* Apply sql command.
+
+
+Performance work:
+* Benchmark single node performance (w/o replication overhead)
+* Benchmark replicated cluster performance (3 nodes).
+
+### Testing
+
+Using polygot for rpc testing: https://github.com/grpc-ecosystem/polyglot/releases/tag/v1.5.0
+Create test students table and add a value to it.
+```
+$ echo "{ command: 'create table if not exists students(id integer primary key not null, name text); insert or replace into students(id, name) values(1, \"John\")' }" | java -jar ~/bin/polyglot.jar  --command=call --endpoint=localhost:50050 --full_method=proto_raft.Raft/ClientCommand
+```
+
+RPC command to query it
+```
+$ $ echo "{ query: 'select * from students' }" | java -jar ~/bin/polyglot.jar  --command=call --endpoint=localhost:50050 --full_method=proto_raft.Raft/ClientCommand
+```
+
 ### Debugging Issues
 
 * Leader election
     - Yay, seems to be working now.
     - Want to fix though burning CPU on follower loop: Fixed
     - Need to look a go routine leak. We die when running with -race detector: FIXED
+
+* Databases
+    - File paths do not seem to be created properly: FIXED
+         - Just execute a db statement to get the file to be created.
+
+* Client Command not being processed: FIXED
+Issue was that we're not handling case of an unexpected request format.
+```
+echo "{  }" | java -jar ~/bin/polyglot.jar  --command=call --endpoint=localhost:50050 --full_method=proto_raft.Raft/ClientCommand
+```

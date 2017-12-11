@@ -18,6 +18,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"sync"
 	"sync/atomic"
+
+	"database/sql"
+
+	// Import for sqlite3 support.
+	_ "github.com/mattn/go-sqlite3"
+	"strings"
+	"github.com/golang/protobuf/proto"
+	"strconv"
 )
 
 const (
@@ -65,6 +73,12 @@ type Server struct {
 	// Counts number of nodes in cluster that have chosen this node to be a leader
 	receivedVoteCount int64
 
+	// Database containing the persistent raft log
+	raftLogDb *sql.DB
+
+	// sqlite Database of the replicated state machine.
+	sqlDb * sql.DB
+
 	// Mutex to synchronize concurrent access to data structure
 	lock sync.Mutex
 }
@@ -79,6 +93,7 @@ type Event struct {
 type RpcEvent struct {
 	requestVote* RaftRequestVoteRpcEvent
 	appendEntries* RaftAppendEntriesRpcEvent
+	clientCommand* RaftClientCommandRpcEvent
 }
 
 // Type for request vote rpc event.
@@ -95,10 +110,16 @@ type RaftAppendEntriesRpcEvent struct {
 	responseChan chan<- pb.AppendEntriesResponse
 }
 
+// Type for client command rpc event.
+type RaftClientCommandRpcEvent struct {
+	request pb.ClientCommandRequest
+	// Channel for event loop to communicate back response to client.
+	responseChan chan<- pb.ClientCommandResponse
+}
+
 // Contains all the inmemory state needed by the Raft algorithm
 type RaftState struct {
 
-	// TODO(jmuindi): Add support for real persistent state; perhaps we can use a sqlite db underneath?
 	persistentState     RaftPersistentState
 	volatileState       RaftVolatileState
 	volatileLeaderState RaftLeaderState
@@ -107,16 +128,26 @@ type RaftState struct {
 type RaftPersistentState struct {
 	currentTerm int64
 	votedFor    string
-	log         []string
+	log         []pb.DiskLogEntry
 }
 
 type RaftVolatileState struct {
 	commitIndex int64
 	lastApplied int64
+
+	// Custom fields
+
+	// Id for who we believe to be the current leader of the cluster.
+	leaderId string
 }
 
 type RaftLeaderState struct {
+
+	// Index of the next log entry to send to that server. Should be initialized
+	// at leader last log index + 1.
 	nextIndex  []int64
+
+	// Index of the highest log entry known to be replicated on each server.
 	matchIndex []int64
 }
 
@@ -131,6 +162,288 @@ type RaftConfig struct {
 	// heartbeat RPCs.
 	heartBeatIntervalMillis int64
 }
+
+// Raft Persistent State accessors / getters / functions.
+func GetPersistentRaftLog() []pb.DiskLogEntry {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	return raftServer.raftState.persistentState.log
+}
+
+func GetPersistentVotedFor() string {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	return GetPersistentVotedForLocked()
+}
+
+// Locked means caller already holds appropriate lock.
+func GetPersistentVotedForLocked() string {
+	return raftServer.raftState.persistentState.votedFor
+}
+
+
+func SetPersistentVotedFor(newValue string)  {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	SetPersistentVotedForLocked(newValue)
+}
+
+func SetPersistentVotedForLocked(newValue string)  {
+	// Want to write to stable storage (database).
+	// First determine if we're updating or inserting value.
+
+	rows, err := raftServer.raftLogDb.Query("SELECT value FROM RaftKeyValue WHERE key = 'votedFor'")
+	if err != nil {
+		log.Fatalf("Failed to read persisted voted for while trying to update it. err: %v", err)
+	}
+	defer rows.Close()
+	votedForExists := false
+	for rows.Next() {
+		var valueStr string
+		err = rows.Scan(&valueStr)
+		if err != nil {
+			log.Fatalf("Error  reading persisted voted for row while try to update: %v", err)
+		}
+		votedForExists = true
+	}
+
+	// Now proceed with the update/insertion.
+	tx, err := raftServer.raftLogDb.Begin()
+	if err != nil {
+		log.Fatalf("Failed to begin db tx to update voted for. err:%v", err)
+	}
+
+	needUpdate := votedForExists
+	var statement *sql.Stmt
+	if needUpdate {
+		statement, err = tx.Prepare("UPDATE RaftKeyValue SET value = ? WHERE key = ?")
+		if err != nil {
+			log.Fatalf("Failed to prepare stmt to update voted for. err: %v", err)
+		}
+		_, err = statement.Exec(newValue, "votedFor")
+		if err != nil {
+			log.Fatalf("Failed to update voted for value. err: %v", err)
+		}
+	} else {
+		statement, err = tx.Prepare("INSERT INTO RaftKeyValue(key, value) values(?, ?)")
+		if err != nil {
+			log.Fatalf("Failed to create stmt to insert voted for. err: %v", err)
+		}
+		_, err = statement.Exec("votedFor", newValue)
+		if err != nil {
+			log.Fatalf("Failed to insert voted for value. err: %v", err)
+		}
+	}
+	defer statement.Close()
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalf("Failed to commit tx to update voted for. err: %v", err)
+	}
+
+	// Then update in-memory state last.
+	raftServer.raftState.persistentState.votedFor = newValue
+}
+
+func GetPersistentCurrentTerm() int64 {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return GetPersistentCurrentTermLocked()
+}
+
+func GetPersistentCurrentTermLocked() int64 {
+	return raftServer.raftState.persistentState.currentTerm
+}
+
+func SetPersistentCurrentTerm(newValue int64) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	SetPersistentCurrentTermLocked(newValue)
+}
+
+func SetPersistentCurrentTermLocked(newValue int64) {
+	// Write to durable storage (database) first.
+	// First determine if we're updating or inserting brand new value.
+
+	rows, err := raftServer.raftLogDb.Query("SELECT value FROM RaftKeyValue WHERE key = 'currentTerm'")
+	if err != nil {
+		log.Fatalf("Failed to read persisted current term while trying to update it. err: %v", err)
+	}
+	defer rows.Close()
+	valueExists := false
+	for rows.Next() {
+		var valueStr string
+		err = rows.Scan(&valueStr)
+		if err != nil {
+			log.Fatalf("Error reading persisted currentTerm row while try to update: %v", err)
+		}
+		valueExists = true
+	}
+
+	// Now proceed with the update/insertion.
+
+	tx, err := raftServer.raftLogDb.Begin()
+	if err != nil {
+		log.Fatalf("Failed to begin db tx to update current term. err:%v", err)
+	}
+
+	newValueStr := strconv.FormatInt(newValue, 10)
+	var statement *sql.Stmt
+	if valueExists {
+		// Then update it.
+		statement, err = tx.Prepare("UPDATE RaftKeyValue SET value = ? WHERE key = ?")
+		if err != nil {
+			log.Fatalf("Failed to prepare stmt to update current term. err: %v", err)
+		}
+		_, err = statement.Exec(newValueStr, "currentTerm")
+		if err != nil {
+			log.Fatalf("Failed to update current term value. err: %v", err)
+		}
+	} else {
+		// Insert a brand new one.
+		statement, err = tx.Prepare("INSERT INTO RaftKeyValue(key, value) values(?, ?)")
+		if err != nil {
+			log.Fatalf("Failed to create stmt to insert current term. err: %v", err)
+		}
+		_, err = statement.Exec("currentTerm", newValueStr)
+		if err != nil {
+			log.Fatalf("Failed to insert currentTerm value. err: %v", err)
+		}
+	}
+	defer statement.Close()
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalf("Failed to commit tx to update current term. err: %v", err)
+	}
+
+	// Then update in memory state last.
+	raftServer.raftState.persistentState.currentTerm = newValue
+}
+
+func AddPersistentLogEntry(newValue pb.LogEntry) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	AddPersistentLogEntryLocked(newValue)
+}
+
+func AddPersistentLogEntryLocked(newValue pb.LogEntry) {
+	nextIndex := int64(len(raftServer.raftState.persistentState.log)) + 1
+	diskEntry := pb.DiskLogEntry{
+		LogEntry: &newValue,
+		LogIndex: nextIndex,
+	}
+
+	// Update database (stable storage first).
+	tx, err := raftServer.raftLogDb.Begin()
+	if err != nil {
+		log.Fatalf("Failed to begin db tx. Err: %v", err)
+	}
+	statement, err := tx.Prepare("INSERT INTO RaftLog(log_index, log_entry) values(?, ?)")
+	if err != nil {
+		log.Fatalf("Failed to prepare sql statement to add log entry. err: %v", err)
+	}
+	defer statement.Close()
+	protoText := proto.MarshalTextString(&newValue)
+	_, err = statement.Exec(nextIndex, protoText)
+	if err != nil {
+		log.Fatalf("Failed to execute sql statement to add log entry. err: %v", err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalf("Failed to commit tx to add log entry. err: %v", err)
+	}
+
+	raftServer.raftState.persistentState.log = append(raftServer.raftState.persistentState.log, diskEntry)
+}
+
+func DeletePersistentLogEntryInclusive(startDeleteLogIndex int64) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	DeletePersistentLogEntryInclusiveLocked(startDeleteLogIndex)
+}
+
+// Delete all log entries starting from the given log index.
+// Note: input log index is 1-based.
+func DeletePersistentLogEntryInclusiveLocked(startDeleteLogIndex int64) {
+
+	// Delete first from database storage.
+	tx, err := raftServer.raftLogDb.Begin()
+	if err != nil {
+		log.Fatalf("Failed to begin db tx for delete log entries. err: %v", err)
+	}
+
+	statement, err := tx.Prepare("DELETE FROM RaftLog WHERE log_index >= ?")
+	if err != nil {
+		log.Fatalf("Failed to prepare sql statement to delete log entry. err: %v", err)
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(startDeleteLogIndex)
+	if err != nil {
+		log.Fatalf("Failed to execute sql statement to delete log entry. err: %v", err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalf("Failed to commit tx to delete log entry. err: %v", err)
+	}
+
+	// Finally update the in-memory state.
+	zeroBasedDeleteIndex := startDeleteLogIndex - 1
+	raftServer.raftState.persistentState.log = append(raftServer.raftState.persistentState.log[:zeroBasedDeleteIndex])
+}
+
+
+func IncrementPersistenCurrentTerm() {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	IncrementPersistentCurrentTermLocked()
+}
+
+func IncrementPersistentCurrentTermLocked() {
+	val := GetPersistentCurrentTermLocked()
+	newVal := val + 1
+	SetPersistentCurrentTermLocked(newVal)
+}
+
+
+func SetReceivedHeartbeat(newVal bool) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	SetReceivedHeartbeatLocked(newVal)
+}
+
+func SetReceivedHeartbeatLocked(newVal bool) {
+	raftServer.receivedHeartbeat = newVal
+}
+
+
+// Raft Volatile State.
+func GetLeaderIdLocked() string {
+	return raftServer.raftState.volatileState.leaderId
+}
+
+func GetLeaderId() string {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return GetLeaderIdLocked()
+}
+
+func SetLeaderIdLocked(newVal string) {
+	raftServer.raftState.volatileState.leaderId = newVal
+}
+
+func SetLeaderId(newVal string) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+	SetLeaderIdLocked(newVal)
+}
+
 
 // AppendEntries implementation for pb.RaftServer
 func (s *Server) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
@@ -164,6 +477,23 @@ func (s *Server) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (*p
 
 	result := <-replyChan
 	return &result, nil
+}
+
+// Client Command implementation for raft.RaftServer
+func (s *Server) ClientCommand(ctx context.Context, in *pb.ClientCommandRequest) (*pb.ClientCommandResponse, error) {
+	replyChan := make(chan pb.ClientCommandResponse)
+	event := Event{
+		rpc: RpcEvent{
+			clientCommand: &RaftClientCommandRpcEvent{
+				request: *in,
+				responseChan: replyChan,
+			},
+		},
+    }
+    raftServer.events<- event
+
+    result := <-replyChan
+    return &result, nil
 }
 
 // Specification for a node
@@ -222,13 +552,27 @@ func StartServer(localNode Node, otherNodes []Node) *grpc.Server {
 	return s
 }
 
+// Returns true iff server is the leader for the cluster.
+func IsLeader() bool {
+	return GetServerState() == Leader
+}
+
+// Returns true iff server is a follower in the cluster
+func IsFollower() bool {
+	return GetServerState() == Follower
+}
+
+// Returns true iff server is a candidate
+func IsCandidate() bool {
+	return GetServerState() == Candidate
+}
+
 // Returns initial server state.
 func GetInitialServer() Server {
 	result := Server{
 		serverState: Follower,
 		raftConfig: RaftConfig{
 			electionTimeoutMillis: PickElectionTimeOutMillis(),
-			// TODO(jmuindi): Consider making this a command line flag.
 			heartBeatIntervalMillis: 10,
 		},
 		events: make(chan Event),
@@ -329,7 +673,143 @@ func GetLocalNodeId() string {
 
 // Initializes Raft on server startup.
 func InitializeRaft(addressPort string, otherNodes []Node) {
+	InitializeDatabases()
 	StartServerLoop()
+}
+
+func InitializeDatabases() {
+	raftDbLog, err := sql.Open("sqlite3" , GetSqliteRaftLogPath())
+	if err != nil {
+		log.Fatalf("Failed to open raft db log: %v err: %v", GetSqliteRaftLogPath(), err)
+	}
+	replicatedStateMachineDb, err := sql.Open("sqlite3", GetSqliteReplicatedStateMachineOpenPath())
+	if err != nil {
+		log.Fatalf("Failed to open replicated state machine database. Path: %v err: %v", GetSqliteReplicatedStateMachineOpenPath(), err)
+	}
+
+	raftDbLog.Exec("pragma database_list")
+	replicatedStateMachineDb.Exec("pragma database_list")
+
+	// Create Tables for the raft log persistence. We want two tables:
+	// 1) RaftLog with columns of log_index, log entry proto
+	// 2) RaftKeyValue with columns of key,value. This is used to keep two properties
+	//    votedFor and currentTerm.
+
+	raftLogTableCreateStatement :=
+		` CREATE TABLE IF NOT EXISTS RaftLog (
+             log_index INTEGER NOT NULL PRIMARY KEY,
+             log_entry TEXT);
+        `
+	_, err = raftDbLog.Exec(raftLogTableCreateStatement)
+	if err != nil {
+		log.Fatalf("Failed to Create raft log table. sql: %v err: %v", raftLogTableCreateStatement, err)
+	}
+
+	raftKeyValueCreateStatement :=
+		` CREATE TABLE IF NOT EXISTS RaftKeyValue (
+              key TEXT NOT NULL PRIMARY KEY,
+              value TEXT);
+        `
+	_, err = raftDbLog.Exec(raftKeyValueCreateStatement)
+     if err != nil {
+     	log.Fatalf("Failed to create raft key value table. sql: %v, err: %v", raftKeyValueCreateStatement, err)
+	 }
+
+	 raftServer.sqlDb = replicatedStateMachineDb
+	 raftServer.raftLogDb = raftDbLog
+
+	 LoadPersistentStateIntoMemory()
+}
+
+// Loads the on disk persistent state into memory.
+func LoadPersistentStateIntoMemory() {
+	util.Log(util.INFO, "Before load. Raft Persistent State: %v ", raftServer.raftState.persistentState)
+	LoadPersistentLog()
+	LoadPersistentKeyValues()
+	util.Log(util.INFO, "After load. Raft Persistent State: %v ", raftServer.raftState.persistentState)
+}
+
+func LoadPersistentKeyValues() {
+
+	// Load value for the current term.
+	LoadPersistedCurrentTerm()
+
+	// Load value for the voted for into memory
+	LoadPersistedVotedFor()
+
+}
+func LoadPersistedVotedFor() {
+	rows, err := raftServer.raftLogDb.Query("SELECT value FROM RaftKeyValue WHERE key = 'votedFor';")
+	if err != nil {
+		log.Fatalf("Failed to read votedFor value into memory. err: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var valueStr string
+		err = rows.Scan(&valueStr)
+		if err != nil {
+			log.Fatalf("Failed to read votedFor row entry. err: %v", err)
+		}
+
+		util.Log(util.INFO, "Restoring votedFor value to memory: %v", valueStr)
+		raftServer.raftState.persistentState.votedFor = valueStr
+	}
+}
+
+func LoadPersistedCurrentTerm() {
+	rows, err := raftServer.raftLogDb.Query("SELECT value FROM RaftKeyValue WHERE key = 'currentTerm';")
+	if err != nil {
+		log.Fatalf("Failed to read current term value into memory. err: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var valueStr string
+		err = rows.Scan(&valueStr)
+		if err != nil {
+			log.Fatalf("Failed to read current term row entry. err: %v", err)
+		}
+		restoredTerm, err := strconv.ParseInt(valueStr, 10, 64)
+		if err != nil {
+			log.Fatalf("Failed to parse current term as integer. value: %v err: %v", valueStr, err)
+		}
+		util.Log(util.INFO, "Restoring current term to memory: %v", restoredTerm)
+		raftServer.raftState.persistentState.currentTerm = restoredTerm
+	}
+}
+
+func LoadPersistentLog() {
+	rows, err := raftServer.raftLogDb.Query("SELECT log_index, log_entry FROM RaftLog ORDER BY log_index ASC;")
+	if err != nil {
+		log.Fatalf("Failed to load raft persistent state into memory. err: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var logIndex int64
+		var logEntryProtoText string
+		err = rows.Scan(&logIndex, &logEntryProtoText)
+		if err != nil {
+			log.Fatalf("Failed to read raft log row entry. err: %v ", err)
+		}
+		util.Log(util.INFO, "Restoring raft log to memory: %v, %v", logIndex, logEntryProtoText)
+
+		var parsedLogEntry pb.LogEntry
+		err := proto.UnmarshalText(logEntryProtoText, &parsedLogEntry)
+		if err != nil {
+			log.Fatalf("Error parsing log entry proto: %v err: %v", logEntryProtoText, err)
+		}
+		diskLogEntry := pb.DiskLogEntry{
+			LogIndex: logIndex,
+			LogEntry: &parsedLogEntry,
+		}
+
+		raftServer.raftState.persistentState.log = append(raftServer.raftState.persistentState.log, diskLogEntry)
+	}
+}
+
+// Moves the commit index forward from the current value to the given index.
+// Note: newIndex should be the log index value which is 1-based.
+func MoveCommitIndexTo(newIndex int64) {
+	// TODO(jmuindi): Implement to apply effect of raft log statements to state machine.
 }
 
 func GetLastHeartbeatTimeMillis() int64 {
@@ -372,10 +852,8 @@ func ResetElectionTimeOut() {
 
 // Returns true if this node already voted for a node to be a leader.
 func AlreadyVoted() bool {
-	raftServer.lock.Lock()
-	defer raftServer.lock.Unlock()
 
-	if raftServer.raftState.persistentState.votedFor != "" {
+	if GetPersistentVotedFor() != "" {
 		return true
 	} else {
 		return false
@@ -406,10 +884,11 @@ func IncrementElectionTerm() {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
-	raftServer.raftState.persistentState.votedFor = ""
-	raftServer.raftState.persistentState.currentTerm++
+
+	SetPersistentVotedForLocked("")
+	IncrementPersistentCurrentTermLocked()
 	ResetReceivedVoteCount()
-	raftServer.receivedHeartbeat = false
+	SetReceivedHeartbeatLocked(false)
 }
 
 func VoteForSelf() {
@@ -417,7 +896,7 @@ func VoteForSelf() {
 	defer raftServer.lock.Unlock()
 
 	myId := GetLocalNodeId()
-	raftServer.raftState.persistentState.votedFor = myId
+	SetPersistentVotedForLocked(myId)
 	IncrementVoteCount()
 }
 
@@ -428,7 +907,7 @@ func VoteForServer(serverToVoteFor Node) {
 	defer raftServer.lock.Unlock()
 
 	serverId := GetNodeId(serverToVoteFor)
-	raftServer.raftState.persistentState.votedFor = serverId
+	SetPersistentVotedForLocked(serverId)
 }
 
 // Returns the size of the raft cluster.
@@ -467,7 +946,7 @@ func RaftCurrentTerm() int64 {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
-	return raftServer.raftState.persistentState.currentTerm
+	return GetPersistentCurrentTermLocked()
 }
 
 func SetReceivedHeartBeat() {
@@ -497,12 +976,10 @@ func FollowerLoop() {
 		remainingHeartbeatTimeMs := GetRemainingHeartbeatTimeMs()
 		timeoutTimer := GetTimeoutWaitChannel(remainingHeartbeatTimeMs)
 
-		// TODO(jmuindi): Process Any RPCs that we have.
 		select {
 		case event := <-raftServer.events:
 			util.Log(util.VERBOSE, "Processing rpc #%v event: %v", rpcCount, event)
 			handleRpcEvent(event)
-			// pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 			rpcCount++
 		case <-timeoutTimer.C:
 			// Election timeout occured w/o heartbeat from leader.
@@ -517,9 +994,241 @@ func handleRpcEvent(event Event) {
 		handleRequestVoteRpc(event.rpc.requestVote)
 	} else if event.rpc.appendEntries != nil {
 		handleAppendEntriesRpc(event.rpc.appendEntries)
+	} else if event.rpc.clientCommand != nil {
+		handleClientCommandRpc(event.rpc.clientCommand)
 	} else {
 		log.Fatalf("Unexpected rpc event: %v", event)
 	}
+}
+
+// Handles client command request.
+func handleClientCommandRpc(event *RaftClientCommandRpcEvent) {
+	if !IsLeader() {
+		result := pb.ClientCommandResponse{}
+		util.Log(util.WARN, "Rejecting client command because not leader")
+		result.ResponseStatus = uint32(codes.FailedPrecondition)
+		result.NewLeaderId = GetLeaderId()
+		event.responseChan<- result
+		return
+	}
+
+	if event.request.GetCommand() != "" {
+		handleClientMutateCommand(event)
+	} else if event.request.GetQuery() != "" {
+		handleClientQueryCommand(event)
+	} else {
+		// Invalid / unexpected request.
+		result := pb.ClientCommandResponse{}
+		util.Log(util.WARN, "Invalid client command (not command/query): %v", event)
+		result.ResponseStatus = uint32(codes.InvalidArgument)
+		event.responseChan<- result
+		return
+	}
+
+}
+
+func handleClientQueryCommand(event *RaftClientCommandRpcEvent) {
+	sqlQuery := event.request.Query
+	util.Log(util.INFO, "Servicing SQL query: %v", sqlQuery)
+
+	result := pb.ClientCommandResponse{}
+
+	rows, err := raftServer.sqlDb.Query(sqlQuery)
+	if err != nil {
+		util.Log(util.WARN, "Sql query error: %v", err)
+		result.ResponseStatus = uint32(codes.Aborted)
+		event.responseChan <- result
+		return
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		util.Log(util.WARN, "Sql cols query error: %v", err)
+		result.ResponseStatus = uint32(codes.Aborted)
+		event.responseChan <- result
+		return
+	}
+
+	columnData := make([]string, len(columns))
+
+	rawData := make([][]byte , len(columns))
+	tempData := make([]interface{}, len(columns))
+	for i, _ := range rawData {
+		tempData[i] = &rawData[i]
+	}
+
+	for rows.Next() {
+		err = rows.Scan(tempData...)
+		if err != nil {
+			util.Log(util.WARN, "Sql query error. Partial data return: %v", err)
+			continue
+		}
+
+		for i, val := range rawData {
+			if val == nil {
+				columnData[i] = ""
+			} else {
+				columnData[i] = string(val)
+			}
+		}
+	}
+
+	// Combine column data into one string.
+	queryResult := strings.Join(columnData, " | ")
+	result.QueryResponse = queryResult
+
+	result.ResponseStatus = uint32(codes.OK)
+	event.responseChan <- result
+
+}
+
+func handleClientMutateCommand(event *RaftClientCommandRpcEvent) {
+	result := pb.ClientCommandResponse{}
+	// From Section 5.3 We need to do the following
+	// 1) Append command to our log as a new entry
+	// 2) Issue AppendEntries RPC in parallel to each of the other other nodes
+	// 3) When Get majority successful responses, apply the new entry to our state
+	//   machine, and reply to client.
+	// Note: If some other followers slow, we apply append entries rpcs indefinitely.
+	appendCommandToLocalLog(event)
+	replicationSuccess := IssueAppendEntriesRpcToMajorityNodes(event)
+	if replicationSuccess {
+		result.ResponseStatus = uint32(codes.OK)
+		ApplyCommandToStateMachine(event)
+	} else {
+		result.ResponseStatus = uint32(codes.Aborted)
+	}
+	event.responseChan <- result
+}
+
+
+// Applies the command to the local state machine. For us this, this is to apply the
+// sql command.
+func ApplyCommandToStateMachine(event *RaftClientCommandRpcEvent) {
+	util.Log(util.INFO, "Update State machine with command: %v", event.request.Command)
+	ApplySqlCommand(event.request.Command)
+}
+
+func ApplySqlCommand(sqlCommand string) {
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	ApplySqlCommandLocked(sqlCommand)
+}
+
+func ApplySqlCommandLocked(sqlCommand string) {
+	_, err := raftServer.sqlDb.Exec(sqlCommand)
+	if err != nil {
+		util.Log(util.WARN, "Sql application execution warning: %v", err)
+	}
+}
+
+
+// sql database which is the state machine for this node.
+func GetSqliteReplicatedStateMachineOpenPath() string {
+	// Want this to point to in-memory database. We'll replay raft log entries
+	// to bring db upto speed.
+	const sqlOpenPath = "file::memory:?mode=memory&cache=shared"
+	return sqlOpenPath
+}
+
+// Returns database path to use for the raft log.
+func GetSqliteRaftLogPath() string {
+	localId := GetLocalNodeId()
+	localId = strings.Replace(localId, ":", "-", -1)
+	return "./sqlite-raft-log-" + localId
+}
+
+// Issues append entries rpc to replicate command to majority of nodes and returns
+// true on success.
+func IssueAppendEntriesRpcToMajorityNodes(event *RaftClientCommandRpcEvent) bool {
+
+	otherNodes := GetOtherNodes()
+
+	// Make RPCs in parallel but wait for all of them to complete.
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(len(otherNodes))
+
+	numOtherNodeSuccessRpcs := int32(0)
+
+	for _, node := range otherNodes {
+		// Pass a copy of node to avoid a race condition.
+		go func(node pb.RaftClient) {
+			defer waitGroup.Done()
+			success := IssueAppendEntriesRpcToNode(event.request, node)
+			if success {
+				atomic.AddInt32(&numOtherNodeSuccessRpcs, 1)
+			}
+		}(node)
+	}
+
+	waitGroup.Wait()
+
+	// +1 to include the copy at the primary as well.
+	numReplicatedData:= int64(numOtherNodeSuccessRpcs) + 1
+	if numReplicatedData >= GetQuorumSize() {
+		return true
+	} else {
+		return false
+	}
+}
+
+// Issues an append entries rpc to given raft client and returns true upon success
+func IssueAppendEntriesRpcToNode(request pb.ClientCommandRequest, client pb.RaftClient) bool {
+	if !IsLeader() {
+		return false
+	}
+	currentTerm := RaftCurrentTerm()
+	appendEntryRequest := pb.AppendEntriesRequest{}
+	appendEntryRequest.Term = currentTerm
+	appendEntryRequest.LeaderId = GetLocalNodeId()
+	appendEntryRequest.PrevLogIndex = GetLeaderPreviousLogIndex()
+	appendEntryRequest.PrevLogTerm = GetLeaderPreviousLogTerm()
+	appendEntryRequest.LeaderCommit = GetLeaderCommit()
+
+	newEntry := pb.LogEntry{}
+	newEntry.Term = currentTerm
+	newEntry.Data = request.Command
+
+	appendEntryRequest.Entries = append(appendEntryRequest.Entries, &newEntry)
+
+	result, err := client.AppendEntries(context.Background(), &appendEntryRequest)
+	if err != nil {
+		util.Log(util.ERROR, "Error issuing append entry to node: %v err:%v", client, err)
+		return false
+	}
+	if result.ResponseStatus != uint32(codes.OK) {
+		util.Log(util.ERROR, "Error issuing append entry to node: %v response code:%v", client, result.ResponseStatus)
+		return false
+	}
+	util.Log(util.INFO, "AppendEntry Response from node: %v response: %v", client, *result)
+
+	if result.Term > RaftCurrentTerm() {
+		ChangeToFollowerIfTermStale(result.Term)
+		return false
+	} else {
+		return true
+	}
+}
+
+
+func ChangeToFollowerIfTermStale(theirTerm int64) {
+	if theirTerm > RaftCurrentTerm() {
+		util.Log(util.INFO, "Changing to follower status because term stale")
+		ChangeToFollowerStatus()
+		SetRaftCurrentTerm(theirTerm)
+	}
+}
+
+
+func appendCommandToLocalLog(event *RaftClientCommandRpcEvent) {
+	currentTerm := RaftCurrentTerm()
+	newLogEntry := pb.LogEntry{
+		Data: event.request.Command,
+		Term: currentTerm,
+	}
+	AddPersistentLogEntry(newLogEntry)
 }
 
 // Handles request vote rpc.
@@ -540,10 +1249,24 @@ func handleRequestVoteRpc(event *RaftRequestVoteRpcEvent) {
 	} else if AlreadyVoted() {
 		result.VoteGranted = false
 	} else {
-		// TODO(jmuindi): Only grant vote if candidate log at least uptodate
+		// Only grant vote if candidate log at least uptodate
 		// as receivers (Section 5.2; 5.4)
-		util.Log(util.INFO,  "Grant vote to other server at term: %v", currentTerm)
-		result.VoteGranted = true
+		if GetLastLogTerm() > event.request.LastLogTerm {
+			// Node is more up to date, deny vote.
+			result.VoteGranted = false
+		} else if GetLastLogTerm() < event.request.LastLogTerm {
+			// Their term is more current, grant vote
+			result.VoteGranted = true
+		} else {
+			// Terms match. Let's check log index to see who has longer log history.
+			if (GetLastLogIndex() > event.request.LastLogIndex) {
+				// Node is more current, deny vote
+				result.VoteGranted = false
+			} else {
+				result.VoteGranted = true
+			}
+		}
+		util.Log(util.INFO,  "Grant vote to other server (%v) at term: %v ? %v", event.request.CandidateId, currentTerm, result.VoteGranted)
 	}
 	result.ResponseStatus = uint32(codes.OK)
 	event.responseChan<- result
@@ -559,6 +1282,9 @@ func handleHeartBeatRpc(event *RaftAppendEntriesRpcEvent) {
 	ResetElectionTimeOut()
 	SetReceivedHeartBeat()
 
+	// And update our leader id if necessary.
+	SetLeaderId(event.request.LeaderId)
+
 	result.Success = true
 	event.responseChan<- result
 }
@@ -573,6 +1299,14 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		ChangeToFollowerStatus()
 		SetRaftCurrentTerm(theirTerm)
 		currentTerm = theirTerm
+	} else if theirTerm < currentTerm {
+		// We want to reply false here as leader term is stale.
+		result := pb.AppendEntriesResponse{}
+		result.Term = currentTerm
+		result.ResponseStatus = uint32(codes.OK)
+		result.Success = false
+		event.responseChan<- result
+		return
 	}
 
 	isHeartBeatRpc := len(event.request.Entries) == 0
@@ -580,8 +1314,39 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 		handleHeartBeatRpc(event)
 		return
 	}
-	// Otherwise process regular append entries rpc
+
+	// Otherwise process regular append entries rpc (receiver impl).
 	// TODO(jmuindi): Implement
+	result:= pb.AppendEntriesResponse{}
+	result.Term = currentTerm
+	result.ResponseStatus = uint32(codes.OK)
+
+    // Want to reply false if log does not contain entry at prevLogIndex
+    // whose term matches prevLogTerm.
+    prevLogIndex := event.request.PrevLogIndex
+    prevLogTerm := event.request.PrevLogTerm
+
+    raftLog := GetPersistentRaftLog()
+    // Note: log index is 1-based, and so is prevLogIndex.
+    containsEntryAtPrevLogIndex := len(raftLog) >= prevLogIndex
+	if !containsEntryAtPrevLogIndex {
+		util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
+		result.Success = false
+		event.responseChan<- result
+		return
+	}
+	// So, we have an entry at that position. Confirm that the terms match.
+	// We want to reply false if the terms do not match at that position.
+	ourLogEntry := raftLog[prevLogIndex-1]  // -1 because log index is 1-based.
+	entryTermsMatch := ourLogEntry.LogEntry.Term == prevLogTerm
+	if !entryTermsMatch {
+		util.Log(util.INFO, "Rejecting append entries rpc because log terms don't match. Ours: %v, theirs: %v", ourLogEntry.LogEntry.Term, prevLogTerm )
+		result.Success = false
+		event.responseChan<- result
+		return
+	}
+
+
 
 }
 
@@ -598,15 +1363,38 @@ func IncrementVoteCount() {
 
 // Returns the index of the last entry in the raft log. Index is 1-based.
 func GetLastLogIndex() int64 {
-	// TODO(jmuindi): Implement once we have raft log up.
-	return 0
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return GetLastLogIndexLocked()
+}
+
+func GetLastLogIndexLocked() int64 {
+	raftLog := raftServer.raftState.persistentState.log
+	lastItem := raftLog[len(raftLog) - 1]
+
+	if lastItem.LogIndex != int64(len(raftLog)) {
+		// TODO: Remove this sanity check ...
+		log.Fatalf("Mismatch between stored log index value and # of entries. Last stored log index: %v num entries: %v ", lastItem.LogIndex, len(raftLog))
+	}
+	return lastItem.LogIndex
 }
 
 // Returns the term for the last entry in the raft log.
 func GetLastLogTerm() int64 {
-	// TODO(jmuindi): Implement once we have persistent log entry.
-	return 0
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	return GetLastLogTermLocked()
 }
+
+func GetLastLogTermLocked() int64 {
+	raftLog := raftServer.raftState.persistentState.log
+	lastItem := raftLog[len(raftLog) - 1]
+
+	return lastItem.LogEntry.Term
+}
+
 
 // Updates raft current term to a new one.
 func SetRaftCurrentTerm(term int64) {
@@ -623,13 +1411,12 @@ func SetRaftCurrentTerm(term int64) {
 	raftServer.lock.Lock()
 	defer raftServer.lock.Unlock()
 
-	raftServer.raftState.persistentState.currentTerm = term
+	SetPersistentCurrentTermLocked(term)
 
 	// Since it's a new term reset who voted for and if heard heartbeat from leader as candidate.
-	raftServer.raftState.persistentState.votedFor = ""
+	SetPersistentVotedForLocked("")
 	ResetReceivedVoteCount()
-	raftServer.receivedHeartbeat = false
-
+	SetReceivedHeartbeatLocked(false)
 }
 
 // Requests votes from all the other nodes to make us a leader. Returns number of
@@ -674,6 +1461,10 @@ func RequestVoteFromNode(node pb.RaftClient) {
 		util.Log(util.ERROR, "Error getting vote from node %v err: %v", node, err)
 		return
 	}
+	if result.ResponseStatus != uint32(codes.OK) {
+		util.Log(util.ERROR, "Error with vote rpc entry to node: %v response code:%v", node, result.ResponseStatus)
+		return
+	}
 	util.Log(util.INFO, "Vote response: %v", *result)
 	if result.VoteGranted {
 		IncrementVoteCount()
@@ -684,7 +1475,6 @@ func RequestVoteFromNode(node pb.RaftClient) {
 		ChangeToFollowerStatus()
 		SetRaftCurrentTerm(result.Term)
 	}
-
 }
 
 // Changes to Follower status.
@@ -773,8 +1563,24 @@ func CandidateLoop() {
 
 // Reinitializes volatile leader state
 func ReinitVolatileLeaderState() {
+	if !IsLeader() {
+		return
+	}
+	volatileLeaderState := raftServer.raftState.volatileLeaderState
 
-	// TODO(jmuindi): implement
+	// Reset match index to 0.
+	numOtherNodes := len(GetOtherNodes())
+	volatileLeaderState.matchIndex = make([]int64, numOtherNodes)
+	for i, _ := range volatileLeaderState.matchIndex {
+		volatileLeaderState.matchIndex[i] = 0
+	}
+
+	// Reset next index to leader last log index + 1.
+	newVal := GetLastLogIndex() + 1
+	volatileLeaderState.nextIndex = make([]int64, numOtherNodes)
+	for i, _ := range volatileLeaderState.nextIndex {
+		volatileLeaderState.nextIndex[i] = newVal
+	}
 }
 
 
@@ -808,6 +1614,7 @@ func LeaderLoop() {
 
 	// Send heartbeats to followers in the background.
 	go func() {
+		util.Log(util.INFO, "Starting to Send heartbeats to followers in background")
 		for {
 			if GetServerState() != Leader {
 				util.Log(util.INFO, "No longer leader. Stopping heartbeat rpcs")
@@ -833,7 +1640,6 @@ func LeaderLoop() {
 
 // Send heart beat rpcs to followers in parallel and waits for them to all complete.
 func SendHeartBeatsToFollowers() {
-	util.Log(util.INFO, "Sending heartbeats to followers")
 	otherNodes := GetOtherNodes()
 
 	var waitGroup sync.WaitGroup
@@ -856,9 +1662,9 @@ func SendHeartBeatRpc(node pb.RaftClient) {
 	request.Term = RaftCurrentTerm()
 	request.LeaderId = GetLocalNodeId()
 	request.LeaderCommit = GetLeaderCommit()
-	request.PrevLogIndex = GetLeaderPreviousLogIndex()
-	request.PrevLogTerm = GetLeaderPreviousLogTerm()
-	// Log entries are empty/nil for heartbeat rpcs.
+
+	// Log entries are empty/nil for heartbeat rpcs, so no need to
+	// set previous log index, previous log term.
 	request.Entries = nil
 
 	result, err := node.AppendEntries(context.Background(), &request)
@@ -869,24 +1675,41 @@ func SendHeartBeatRpc(node pb.RaftClient) {
 	util.Log(util.INFO, "Heartbeat RPC Response from node: %v Response: %v", node, *result)
 }
 
-// PrevLogTerm value  used in the appendentries rpc request.
+// PrevLogTerm value  used in the appendentries rpc request. Should be called _after_ local local updated.
 func GetLeaderPreviousLogTerm() int64 {
-	// TODO: implement
-	return 0
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
+
+	// Because we would have just stored a new entry to our local log, when this
+	// method is called, the previous entry is the one before that.
+	raftLog := raftServer.raftState.persistentState.log
+	lastEntryIndex := len(raftLog)-1
+	previousEntryIndex := lastEntryIndex - 1
+	previousEntry := raftLog[previousEntryIndex]
+	return previousEntry.LogEntry.Term
 }
 
-// PrevLogIndex value  used in the appendentries rpc request.
+// PrevLogIndex value  used in the appendentries rpc request. Should be called _after_ local log
+// already updated.
 func GetLeaderPreviousLogIndex() int64 {
-	// TODO: implement
-	return 0
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
 
+	// Because we would have just stored a new entry to our local log, when this
+	// method is called, the previous entry is the one before that.
+	raftLog := raftServer.raftState.persistentState.log
+	lastEntryIndex := len(raftLog)-1
+	previousEntryIndex := lastEntryIndex - 1
+	previousEntry := raftLog[previousEntryIndex]
+	return previousEntry.LogIndex
 }
 
 // Leader commit value used in the appendentries rpc request.
 func GetLeaderCommit() int64 {
-	// TODO: implement
-	return 0
+	raftServer.lock.Lock()
+	defer raftServer.lock.Unlock()
 
+	return raftServer.raftState.volatileState.commitIndex
 }
 
 
