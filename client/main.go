@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	modifier             = "SELECT "
+	selectQuery = "SELECT"
 	defaultServerAddress = "localhost:50051"
 )
 
@@ -34,10 +34,8 @@ var serverAddress string
 // Parse command to determine whether it is RO or making changes
 func CommandIsRO(query string) bool {
 	// input trimmed at client
-	if len(query) >= len(modifier) && query[:len(modifier)] == modifier {
-		return true
-	}
-	return false
+	queryUpper := strings.ToUpper(query)
+	return strings.HasPrefix(queryUpper, selectQuery)
 }
 
 func Connect(addr string) {
