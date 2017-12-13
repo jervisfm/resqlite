@@ -111,10 +111,10 @@ func Format(commandString string, sanitize bool) ([]string, error) {
 func Execute(commands []string) (string, error) {
 	var buf bytes.Buffer
 	numCommands := len(commands)
-	fmt.Println("Have num SQL commands to process: %v", numCommands)
+	fmt.Printf("Have num SQL commands to process: %v\n", numCommands)
 	for i, command := range commands {
 		if i % 10 == 0 {
-			fmt.Printf("Processing command %v of %v", i+1, numCommands)
+			fmt.Printf("Processing command %v of %v\n", i+1, numCommands)
 		}
 		commandRequest := pb.ClientCommandRequest{}
 		if CommandIsRO(command) == true {
