@@ -35,9 +35,9 @@ var serverAddress string
 func CommandIsRO(query string) bool {
 	// input trimmed at client
 	if len(query) >= len(modifier) && query[:len(modifier)] == modifier {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 func Connect(addr string) {
