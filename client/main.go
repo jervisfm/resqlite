@@ -110,8 +110,12 @@ func Format(commandString string, sanitize bool) ([]string, error) {
 
 func Execute(commands []string) (string, error) {
 	var buf bytes.Buffer
-	for _, command := range commands {
-
+	numCommands := len(commands)
+	fmt.Println("Have num SQL commands to process: %v", numCommands)
+	for i, command := range commands {
+		if i % 10 == 0 {
+			fmt.Printf("Processing command %v of %v", i+1, numCommands)
+		}
 		commandRequest := pb.ClientCommandRequest{}
 		if CommandIsRO(command) == true {
 			commandRequest.Query = command
