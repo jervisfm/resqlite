@@ -21,14 +21,15 @@ import (
 )
 
 const (
-	modifier        = "SELECT "
-	startingAddress = "localhost:50050"
+	modifier             = "SELECT "
+	defaultServerAddress = "localhost:50051"
 )
 
 var raftServer pb.RaftClient
 var conn *grpc.ClientConn
 var interactive bool
 var cmdFile string
+var serverAddress string
 
 // Parse command to determine whether it is RO or making changes
 func CommandIsRO(query string) bool {
@@ -228,7 +229,7 @@ func Batch(batchedCommands string) {
 }
 
 func ParseFlags() {
-
+	flag.StringVar(&serverAddress, "server", defaultServerAddress, "Address of Raft Cluster Leader.")
 	flag.StringVar(&cmdFile, "batch", "", "Relative path to a command file to run in batch mode.")
 	flag.BoolVar(&interactive, "interactive", false, "whether batch mode should transition to interactive mode.")
 	flag.Parse()
@@ -237,7 +238,7 @@ func ParseFlags() {
 func main() {
 	ParseFlags()
     // start with hardcoded server
-    Connect(startingAddress)
+    Connect(serverAddress)
 	if cmdFile != "" {
 
 		content, err := ioutil.ReadFile(cmdFile)
