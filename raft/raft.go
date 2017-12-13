@@ -1384,10 +1384,8 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
     prevLogTerm := event.request.PrevLogTerm
 
     raftLog := GetPersistentRaftLog()
-	util.Log(util.INFO, "Append Entry RPC. Start raft log length: %v", len(raftLog))
     if prevLogIndex > 0 {
 		// Note: log index is 1-based, and so is prevLogIndex.
-		util.Log(util.INFO, "Have len raftLog: %v. prevLogIndex: %v log: %v", len(raftLog), prevLogIndex, raftLog)
 		containsEntryAtPrevLogIndex := prevLogIndex <= int64(len(raftLog))   // prevLogIndex <= len(raftLog)
 		if !containsEntryAtPrevLogIndex {
 				util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
