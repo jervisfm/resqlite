@@ -818,7 +818,7 @@ func LoadPersistentLog() {
 // Moves the commit index forward from the current value to the given index.
 // Note: newIndex should be the log index value which is 1-based.
 func MoveCommitIndexTo(newIndex int64) {
-	util.Log(util.WARN, "(UNIMPLEMENTED) MoveCommitIndexTo newIndex: %v", newIndex)
+	util.Log(util.WARN, "MoveCommitIndexTo newIndex: %v", newIndex)
 
 	startCommitIndex := GetCommitIndex()
 	newCommitIndex := newIndex
@@ -1166,17 +1166,18 @@ func ApplySqlCommandLocked(sqlCommand string) {
 func GetSqliteReplicatedStateMachineOpenPath() string {
 	// Want this to point to in-memory database. We'll replay raft log entries
 	// to bring db upto speed.
-	const sqlOpenPath = "file::memory:?mode=memory&cache=shared"
-	return sqlOpenPath
+	//const sqlOpenPath = "file::memory:?mode=memory&cache=shared"
+	//return sqlOpenPath
+
 	// uncomment to get persisted file.
-	// return "./sqlite-db-" + strings.Replace(GetLocalNodeId(), ":", "-", -1)
+	return "./sqlite-db-" + strings.Replace(GetLocalNodeId(), ":", "-", -1) + ".db"
 }
 
 // Returns database path to use for the raft log.
 func GetSqliteRaftLogPath() string {
 	localId := GetLocalNodeId()
 	localId = strings.Replace(localId, ":", "-", -1)
-	return "./sqlite-raft-log-" + localId
+	return "./sqlite-raft-log-" + localId +".db"
 }
 
 // Issues append entries rpc to replicate command to majority of nodes and returns
@@ -1234,6 +1235,7 @@ func IssueAppendEntriesRpcToNode(request pb.ClientCommandRequest, client pb.Raft
 
 	appendEntryRequest.Entries = append(appendEntryRequest.Entries, &newEntry)
 
+	util.Log(util.INFO, "Sending appending entry RPC: %v", appendEntryRequest)
 	result, err := client.AppendEntries(context.Background(), &appendEntryRequest)
 	if err != nil {
 		util.Log(util.ERROR, "Error issuing append entry to node: %v err:%v", client, err)
@@ -1327,9 +1329,16 @@ func handleHeartBeatRpc(event *RaftAppendEntriesRpcEvent) {
 	// And update our leader id if necessary.
 	SetLeaderId(event.request.LeaderId)
 
+	// Also advance commit pointer as appropriate.
+	if event.request.LeaderCommit > GetCommitIndex() {
+		newCommitIndex := min(event.request.LeaderCommit, int64(len(GetPersistentRaftLog())))
+		MoveCommitIndexTo(newCommitIndex)
+	}
+
 	result.Success = true
 	event.responseChan<- result
 }
+
 
 // Handles append entries rpc.
 func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
@@ -1338,10 +1347,12 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 	currentTerm := RaftCurrentTerm()
 	theirTerm := event.request.Term
 	if theirTerm > currentTerm {
+		util.Log(util.WARN, "Append Entries Rpc processing: switching to follower")
 		ChangeToFollowerStatus()
 		SetRaftCurrentTerm(theirTerm)
 		currentTerm = theirTerm
 	} else if theirTerm < currentTerm {
+		util.Log(util.WARN, "Reject Append Entries Rpc because leader term stale")
 		// We want to reply false here as leader term is stale.
 		result := pb.AppendEntriesResponse{}
 		result.Term = currentTerm
@@ -1358,6 +1369,7 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
 	}
 
 	// Otherwise process regular append entries rpc (receiver impl).
+	util.Log(util.INFO, "Processing received AppendEntry rpc: %v", event.request)
 	if len(event.request.Entries) > 1 {
 		util.Log(util.WARN, "Server sent more than one log entry in append entries rpc")
 	}
@@ -1372,32 +1384,34 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
     prevLogTerm := event.request.PrevLogTerm
 
     raftLog := GetPersistentRaftLog()
-    // Note: log index is 1-based, and so is prevLogIndex.
-	util.Log(util.INFO, "Have len raftLog: %v. prevLogIndex: %v log: %v", len(raftLog), prevLogIndex, raftLog)
-	containsEntryAtPrevLogIndex := prevLogIndex > 0 && int64(len(raftLog)) >= prevLogIndex // prevLogIndex <= len(raftLog)
-	if !containsEntryAtPrevLogIndex {
-			util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
+	util.Log(util.INFO, "Append Entry RPC. Start raft log length: %v", len(raftLog))
+    if prevLogIndex > 0 {
+		// Note: log index is 1-based, and so is prevLogIndex.
+		util.Log(util.INFO, "Have len raftLog: %v. prevLogIndex: %v log: %v", len(raftLog), prevLogIndex, raftLog)
+		containsEntryAtPrevLogIndex := prevLogIndex <= int64(len(raftLog))   // prevLogIndex <= len(raftLog)
+		if !containsEntryAtPrevLogIndex {
+				util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
+				result.Success = false
+				event.responseChan<- result
+				return
+		}
+		// So, we have an entry at that position. Confirm that the terms match.
+		// We want to reply false if the terms do not match at that position.
+		prevLogIndexZeroBased := prevLogIndex - 1  // -1 because log index is 1-based.
+		ourLogEntry := raftLog[prevLogIndexZeroBased]
+		entryTermsMatch := ourLogEntry.LogEntry.Term == prevLogTerm
+		if !entryTermsMatch {
+			util.Log(util.INFO, "Rejecting append entries rpc because log terms don't match. Ours: %v, theirs: %v", ourLogEntry.LogEntry.Term, prevLogTerm )
 			result.Success = false
 			event.responseChan<- result
 			return
+		}
 	}
-	// So, we have an entry at that position. Confirm that the terms match.
-	// We want to reply false if the terms do not match at that position.
-	prevLogIndexZeroBased := prevLogIndex - 1  // -1 because log index is 1-based.
-	ourLogEntry := raftLog[prevLogIndexZeroBased]
-	entryTermsMatch := ourLogEntry.LogEntry.Term == prevLogTerm
-	if !entryTermsMatch {
-		util.Log(util.INFO, "Rejecting append entries rpc because log terms don't match. Ours: %v, theirs: %v", ourLogEntry.LogEntry.Term, prevLogTerm )
-		result.Success = false
-		event.responseChan<- result
-		return
-	}
-
 	// Delete log entries that conflict with those from leader.
 	newEntry := event.request.Entries[0]
 	newLogIndex := prevLogIndex + 1
 	newLogIndexZeroBased := newLogIndex -1
-	containsEntryAtNewLogIndex := int64(len(raftLog)) >= newLogIndex
+	containsEntryAtNewLogIndex := newLogIndex <= int64(len(raftLog))
 	if containsEntryAtNewLogIndex {
 		// Check whether we have a conflict (terms differ).
 		ourEntry := raftLog[newLogIndexZeroBased]
