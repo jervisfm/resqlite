@@ -230,7 +230,7 @@ func Batch(batchedCommands string) {
 func ParseFlags() {
 
 	flag.StringVar(&cmdFile, "batch", "", "Relative path to a command file to run in batch mode.")
-	flag.BoolVar(&interactive, "interactive", false, "whether batch mode should trnasition to interactive mode.")
+	flag.BoolVar(&interactive, "interactive", false, "whether batch mode should transition to interactive mode.")
 	flag.Parse()
 }
 
