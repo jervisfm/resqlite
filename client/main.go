@@ -111,7 +111,7 @@ func Execute(commands []string) (string, error) {
 	numCommands := len(commands)
 	fmt.Printf("Have num SQL commands to process: %v\n", numCommands)
 	for i, command := range commands {
-		if i % 10 == 0 {
+		if i % 1000 == 0 {
 			fmt.Printf("Processing command %v of %v\n", i+1, numCommands)
 		}
 		commandRequest := pb.ClientCommandRequest{}
