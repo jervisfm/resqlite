@@ -21,6 +21,9 @@ const (
 	EXTRA_VERBOSE
 )
 
+const (
+	DEBUG_ENABLED = false
+)
 // Only output to INFO level.
 var DebugLevel int = INFO
 
@@ -29,6 +32,9 @@ var DebugLevel int = INFO
 // format: format string
 // v : optional list of formatted parameters in format string.
 func Log(debugLevel int, format string, v ...interface{}) {
+	if !DEBUG_ENABLED {
+		return
+	}
 	if debugLevel < 0 {
 		return
 	}
