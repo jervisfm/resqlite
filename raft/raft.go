@@ -1376,28 +1376,29 @@ func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
     prevLogTerm := event.request.PrevLogTerm
 
     raftLog := GetPersistentRaftLog()
-    util.Log(util.INFO, "Append Entry RPC. Start raft log length: %v", len(raftLog))
-    // Note: log index is 1-based, and so is prevLogIndex.
-	util.Log(util.INFO, "Have len raftLog: %v. prevLogIndex: %v log: %v", len(raftLog), prevLogIndex, raftLog)
-	containsEntryAtPrevLogIndex := prevLogIndex <= int64(len(raftLog))   // prevLogIndex <= len(raftLog)
-	if !containsEntryAtPrevLogIndex {
-			util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
+	util.Log(util.INFO, "Append Entry RPC. Start raft log length: %v", len(raftLog))
+    if prevLogIndex > 0 {
+		// Note: log index is 1-based, and so is prevLogIndex.
+		util.Log(util.INFO, "Have len raftLog: %v. prevLogIndex: %v log: %v", len(raftLog), prevLogIndex, raftLog)
+		containsEntryAtPrevLogIndex := prevLogIndex <= int64(len(raftLog))   // prevLogIndex <= len(raftLog)
+		if !containsEntryAtPrevLogIndex {
+				util.Log(util.INFO, "Rejecting append entries rpc because we don't have previous log entry at index: %v", prevLogIndex)
+				result.Success = false
+				event.responseChan<- result
+				return
+		}
+		// So, we have an entry at that position. Confirm that the terms match.
+		// We want to reply false if the terms do not match at that position.
+		prevLogIndexZeroBased := prevLogIndex - 1  // -1 because log index is 1-based.
+		ourLogEntry := raftLog[prevLogIndexZeroBased]
+		entryTermsMatch := ourLogEntry.LogEntry.Term == prevLogTerm
+		if !entryTermsMatch {
+			util.Log(util.INFO, "Rejecting append entries rpc because log terms don't match. Ours: %v, theirs: %v", ourLogEntry.LogEntry.Term, prevLogTerm )
 			result.Success = false
 			event.responseChan<- result
 			return
+		}
 	}
-	// So, we have an entry at that position. Confirm that the terms match.
-	// We want to reply false if the terms do not match at that position.
-	prevLogIndexZeroBased := prevLogIndex - 1  // -1 because log index is 1-based.
-	ourLogEntry := raftLog[prevLogIndexZeroBased]
-	entryTermsMatch := ourLogEntry.LogEntry.Term == prevLogTerm
-	if !entryTermsMatch {
-		util.Log(util.INFO, "Rejecting append entries rpc because log terms don't match. Ours: %v, theirs: %v", ourLogEntry.LogEntry.Term, prevLogTerm )
-		result.Success = false
-		event.responseChan<- result
-		return
-	}
-
 	// Delete log entries that conflict with those from leader.
 	newEntry := event.request.Entries[0]
 	newLogIndex := prevLogIndex + 1
