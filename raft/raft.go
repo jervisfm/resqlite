@@ -818,7 +818,7 @@ func LoadPersistentLog() {
 // Moves the commit index forward from the current value to the given index.
 // Note: newIndex should be the log index value which is 1-based.
 func MoveCommitIndexTo(newIndex int64) {
-	util.Log(util.WARN, "(UNIMPLEMENTED) MoveCommitIndexTo newIndex: %v", newIndex)
+	util.Log(util.WARN, "MoveCommitIndexTo newIndex: %v", newIndex)
 
 	startCommitIndex := GetCommitIndex()
 	newCommitIndex := newIndex
@@ -1329,9 +1329,16 @@ func handleHeartBeatRpc(event *RaftAppendEntriesRpcEvent) {
 	// And update our leader id if necessary.
 	SetLeaderId(event.request.LeaderId)
 
+	// Also advance commit pointer as appropriate.
+	if event.request.LeaderCommit > GetCommitIndex() {
+		newCommitIndex := min(event.request.LeaderCommit, int64(len(GetPersistentRaftLog())))
+		MoveCommitIndexTo(newCommitIndex)
+	}
+
 	result.Success = true
 	event.responseChan<- result
 }
+
 
 // Handles append entries rpc.
 func handleAppendEntriesRpc(event *RaftAppendEntriesRpcEvent) {
