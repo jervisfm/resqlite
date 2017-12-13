@@ -1166,17 +1166,18 @@ func ApplySqlCommandLocked(sqlCommand string) {
 func GetSqliteReplicatedStateMachineOpenPath() string {
 	// Want this to point to in-memory database. We'll replay raft log entries
 	// to bring db upto speed.
-	const sqlOpenPath = "file::memory:?mode=memory&cache=shared"
-	return sqlOpenPath
+	//const sqlOpenPath = "file::memory:?mode=memory&cache=shared"
+	//return sqlOpenPath
+
 	// uncomment to get persisted file.
-	// return "./sqlite-db-" + strings.Replace(GetLocalNodeId(), ":", "-", -1)
+	return "./sqlite-db-" + strings.Replace(GetLocalNodeId(), ":", "-", -1) + ".db"
 }
 
 // Returns database path to use for the raft log.
 func GetSqliteRaftLogPath() string {
 	localId := GetLocalNodeId()
 	localId = strings.Replace(localId, ":", "-", -1)
-	return "./sqlite-raft-log-" + localId
+	return "./sqlite-raft-log-" + localId +".db"
 }
 
 // Issues append entries rpc to replicate command to majority of nodes and returns
